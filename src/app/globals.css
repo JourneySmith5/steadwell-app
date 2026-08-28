@@ -1,26 +1,37 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F3F3F1;
+  --foreground: #1F3D34;
+
+  /* Steadwell brand palette — see Brand Identity section of the blueprint */
+  --brand-dark: #1F3D34;   /* deep green — primary */
+  --brand-sage: #7D9987;   /* secondary */
+  --brand-pale: #D6E0D6;   /* tertiary — rules/dividers/backgrounds */
+  --brand-accent: #D4B08C; /* terracotta — accents */
+  --brand-slate: #334155;  /* neutral dark — body text */
+  --brand-cream: #F3F3F1;  /* neutral light — page background */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-sage: var(--brand-sage);
+  --color-brand-pale: var(--brand-pale);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-slate: var(--brand-slate);
+  --color-brand-cream: var(--brand-cream);
+  --font-heading: "Cormorant", Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+h1, h2, h3, .font-heading {
+  font-family: "Cormorant", Georgia, serif;
 }

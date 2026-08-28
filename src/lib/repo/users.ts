@@ -1,0 +1,158 @@
+import { get, run, newId, nowIso } from "@/lib/db/client";
+import type { UserRole } from "@/lib/enums";
+
+export interface UserRow {
+  id: string;
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  emailVerified: boolean;
+  emailVerifyToken: string | null;
+  emailVerifyExpiresAt: string | null;
+  totpSecret: string | null;
+  totpEnabled: boolean;
+  passwordResetToken: string | null;
+  passwordResetExpiresAt: string | null;
+  failedLoginAttempts: number;
+  lockedUntil: string | null;
+}
+
+interface UserDbRow {
+  id: string;
+  email: string;
+  password_hash: string;
+  role: string;
+  email_verified: number;
+  email_verify_token: string | null;
+  email_verify_expires_at: string | null;
+  totp_secret: string | null;
+  totp_enabled: number;
+  password_reset_token: string | null;
+  password_reset_expires_at: string | null;
+  failed_login_attempts: number;
+  locked_until: string | null;
+}
+
+function fromRow(row: UserDbRow): UserRow {
+  return {
+    id: row.id,
+    email: row.email,
+    passwordHash: row.password_hash,
+    role: row.role as UserRole,
+    emailVerified: !!row.email_verified,
+    emailVerifyToken: row.email_verify_token,
+    emailVerifyExpiresAt: row.email_verify_expires_at,
+    totpSecret: row.totp_secret,
+    totpEnabled: !!row.totp_enabled,
+    passwordResetToken: row.password_reset_token,
+    passwordResetExpiresAt: row.password_reset_expires_at,
+    failedLoginAttempts: row.failed_login_attempts,
+    lockedUntil: row.locked_until,
+  };
+}
+
+export async function findUserByEmail(email: string): Promise<UserRow | undefined> {
+  const row = await get<UserDbRow>("SELECT * FROM users WHERE email = $email", { $email: email.toLowerCase() });
+  return row ? fromRow(row) : undefined;
+}
+
+export async function findUserById(id: string): Promise<UserRow | undefined> {
+  const row = await get<UserDbRow>("SELECT * FROM users WHERE id = $id", { $id: id });
+  return row ? fromRow(row) : undefined;
+}
+
+export async function findUserByEmailVerifyToken(token: string): Promise<UserRow | undefined> {
+  const row = await get<UserDbRow>("SELECT * FROM users WHERE email_verify_token = $t", { $t: token });
+  return row ? fromRow(row) : undefined;
+}
+
+export async function createUser(params: {
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  emailVerifyToken: string;
+  emailVerifyExpiresAt: string;
+}): Promise<UserRow> {
+  const id = newId();
+  const now = nowIso();
+  await run(
+    `INSERT INTO users (id, email, password_hash, role, email_verify_token, email_verify_expires_at, created_at, updated_at)
+     VALUES ($id, $email, $passwordHash, $role, $token, $expires, $now, $now)`,
+    {
+      $id: id,
+      $email: params.email.toLowerCase(),
+      $passwordHash: params.passwordHash,
+      $role: params.role,
+      $token: params.emailVerifyToken,
+      $expires: params.emailVerifyExpiresAt,
+      $now: now,
+    }
+  );
+  return (await findUserById(id))!;
+}
+
+export async function markEmailVerified(userId: string) {
+  await run(
+    `UPDATE users SET email_verified = 1, email_verify_token = NULL, email_verify_expires_at = NULL, updated_at = $now WHERE id = $id`,
+    { $id: userId, $now: nowIso() }
+  );
+}
+
+export async function setTotpSecret(userId: string, secret: string) {
+  await run(`UPDATE users SET totp_secret = $secret, updated_at = $now WHERE id = $id`, {
+    $id: userId,
+    $secret: secret,
+    $now: nowIso(),
+  });
+}
+
+export async function enableTotp(userId: string) {
+  await run(`UPDATE users SET totp_enabled = 1, updated_at = $now WHERE id = $id`, { $id: userId, $now: nowIso() });
+}
+
+// Account lockout (§2 Security, build order step 14 "privacy controls") —
+// guards against brute-forcing either factor (password or TOTP code) on a
+// financial app where both matter. Counted per-account, not per-IP, since
+// this dev environment has no shared rate-limit store (no Redis) to key on
+// IP across requests — a real production deployment would likely want both.
+// A wrong password AND a wrong TOTP code both call recordFailedLogin on the
+// same counter/lock, since either one is a live guessing attempt against
+// this account; a correct full login (password + TOTP, or password alone
+// for an account that hasn't enrolled TOTP yet) clears it.
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
+export function isLockedOut(user: Pick<UserRow, "lockedUntil">): boolean {
+  return !!user.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now();
+}
+
+// Returns the user's updated lock state so the caller can tell whether this
+// specific attempt is what tripped the lock (to show a clear message)
+// without a second read.
+export async function recordFailedLogin(userId: string): Promise<{ locked: boolean; lockedUntil: string | null }> {
+  const user = await findUserById(userId);
+  if (!user) return { locked: false, lockedUntil: null };
+  const attempts = user.failedLoginAttempts + 1;
+  if (attempts >= MAX_FAILED_ATTEMPTS) {
+    const lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString();
+    await run(`UPDATE users SET failed_login_attempts = 0, locked_until = $lockedUntil, updated_at = $now WHERE id = $id`, {
+      $id: userId,
+      $lockedUntil: lockedUntil,
+      $now: nowIso(),
+    });
+    return { locked: true, lockedUntil };
+  }
+  await run(`UPDATE users SET failed_login_attempts = $attempts, updated_at = $now WHERE id = $id`, {
+    $id: userId,
+    $attempts: attempts,
+    $now: nowIso(),
+  });
+  return { locked: false, lockedUntil: user.lockedUntil };
+}
+
+export async function clearFailedLogins(userId: string) {
+  await run(`UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = $now WHERE id = $id`, {
+    $id: userId,
+    $now: nowIso(),
+  });
+}
