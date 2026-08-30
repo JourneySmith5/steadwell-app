@@ -51,14 +51,28 @@ export default async function CoachDashboardPage() {
     <div>
       <PageHeader title="Dashboard" subtitle="Pipeline overview" />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {Object.entries(STATUS_LABELS).map(([status, label]) => (
-          <Card key={status} className="text-center">
-            <div className="text-2xl font-heading text-brand-dark">{counts[status] ?? 0}</div>
-            <div className="text-xs text-brand-slate/70">{label}</div>
-          </Card>
-        ))}
-      </div>
+      {/* Only statuses with at least one client show a tile — with a
+          fourteen-status pipeline, showing every status at all times means
+          mostly empty "0" tiles cluttering the page. Each tile links to the
+          Clients list pre-filtered to that status. */}
+      {clients.length === 0 ? (
+        <Card className="mb-8">
+          <p className="text-sm text-brand-slate">No clients yet — applications will appear here once someone applies.</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {Object.entries(STATUS_LABELS)
+            .filter(([status]) => (counts[status] ?? 0) > 0)
+            .map(([status, label]) => (
+              <Link key={status} href={`/coach/clients?status=${status}`}>
+                <Card className="text-center hover:bg-brand-pale/30 transition-colors cursor-pointer">
+                  <div className="text-2xl font-heading text-brand-dark">{counts[status] ?? 0}</div>
+                  <div className="text-xs text-brand-slate/70">{label}</div>
+                </Card>
+              </Link>
+            ))}
+        </div>
+      )}
 
       <Card>
         <h2 className="font-heading text-xl text-brand-dark mb-3">Attention Queue</h2>
