@@ -13,13 +13,16 @@ export async function uploadStatement(formData: FormData) {
   const user = await requireClient();
   if (!user.client) redirect("/login");
 
-  const file = formData.get("file");
+  // Multiple files in one submission (e.g. several pages saved separately,
+  // or a few accounts' statements for the same month) — all get filed
+  // under the same account/month picked once for the batch.
+  const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   const accountNickname = String(formData.get("accountNickname") || "").trim();
   const month = String(formData.get("month") || "").trim();
 
   if (!accountNickname) fail("Which account is this a statement for?");
   if (!month) fail("Which month is this statement for?");
-  if (!(file instanceof File) || file.size === 0) fail("Choose a file to upload.");
+  if (files.length === 0) fail("Choose at least one file to upload.");
 
   // access: 'private' — this is a real financial document, not something
   // that should be reachable by anyone who guesses or leaks the URL. The
@@ -27,19 +30,21 @@ export async function uploadStatement(formData: FormData) {
   // download through /api/statements/[id]/download, which checks the
   // requester actually owns (or coaches) this client before fetching it
   // from Blob storage server-side and streaming it back.
-  const blob = await put(`statements/${user.client.id}/${Date.now()}-${file.name}`, file, {
-    access: "private",
-    addRandomSuffix: true,
-    contentType: file.type || undefined,
-  });
+  for (const file of files) {
+    const blob = await put(`statements/${user.client.id}/${Date.now()}-${file.name}`, file, {
+      access: "private",
+      addRandomSuffix: true,
+      contentType: file.type || undefined,
+    });
 
-  await createStatement({
-    clientId: user.client.id,
-    accountNickname,
-    month,
-    fileUrl: blob.url,
-    originalFilename: file.name,
-  });
+    await createStatement({
+      clientId: user.client.id,
+      accountNickname,
+      month,
+      fileUrl: blob.url,
+      originalFilename: file.name,
+    });
+  }
 
   redirect("/portal/foundation/statements");
 }

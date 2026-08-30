@@ -3,6 +3,7 @@ import { Card, Button, Field, TextInput, Select, ErrorText } from "@/components/
 import { SectionHeader, SectionFooterNav, EmptyState } from "../shared";
 import { listStatements } from "@/lib/repo/statements";
 import { listFinancialAccounts } from "@/lib/repo/financialAccounts";
+import { recentMonthOptions, formatStatementMonth } from "@/lib/statementMonths";
 import { uploadStatement, removeStatement } from "./actions";
 
 export default async function StatementsPage({
@@ -16,6 +17,7 @@ export default async function StatementsPage({
   const clientId = user.client.id;
 
   const [statements, accounts] = await Promise.all([listStatements(clientId), listFinancialAccounts(clientId)]);
+  const monthOptions = recentMonthOptions(5);
 
   return (
     <div>
@@ -34,7 +36,7 @@ export default async function StatementsPage({
               <li key={s.id} className="flex items-center justify-between px-6 py-4">
                 <div>
                   <p className="text-sm font-medium text-brand-dark">
-                    {s.accountNickname} — {s.month}
+                    {s.accountNickname} — {formatStatementMonth(s.month)}
                   </p>
                   <p className="text-xs text-brand-slate/70">
                     Uploaded {new Date(s.uploadedAt).toLocaleDateString()}
@@ -76,17 +78,28 @@ export default async function StatementsPage({
             )}
           </Field>
           <Field label="Statement Month" required>
-            <TextInput type="month" name="month" required />
+            <Select name="month" defaultValue={monthOptions[0].value} required>
+              {monthOptions.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </Select>
           </Field>
           <div className="sm:col-span-2">
-            <Field label="File" required>
+            <Field label="Files" required>
               <input
                 type="file"
-                name="file"
+                name="files"
+                multiple
                 required
                 accept=".pdf,.png,.jpg,.jpeg"
                 className="block w-full text-sm text-brand-slate file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand-pale file:text-brand-dark file:text-sm file:font-medium hover:file:bg-brand-pale/70"
               />
+              <p className="text-xs text-brand-slate/60 mt-1">
+                Select multiple files at once (e.g. ctrl/cmd-click) if you have more than one for this account and
+                month.
+              </p>
             </Field>
           </div>
           <div className="sm:col-span-2">

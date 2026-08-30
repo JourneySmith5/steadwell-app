@@ -10,6 +10,7 @@ import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { findOffboardingByClientId } from "@/lib/repo/offboarding";
 import { listStatements } from "@/lib/repo/statements";
+import { formatStatementMonth } from "@/lib/statementMonths";
 import { PageHeader, Card, StatusBadge, Button } from "@/components/ui";
 import {
   PLAN_STATUS_LABELS,
@@ -244,7 +245,7 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                 {statements.map((s) => (
                   <li key={s.id} className="py-2 text-sm flex items-center justify-between">
                     <span className="text-brand-dark">
-                      {s.accountNickname} — {s.month}
+                      {s.accountNickname} — {formatStatementMonth(s.month)}
                     </span>
                     <a href={`/api/statements/${s.id}/download`} className="text-brand-dark underline hover:no-underline">
                       Download
