@@ -4,7 +4,7 @@ import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listIncomeSources, totalNormalizedMonthlyIncome } from "@/lib/repo/incomeSources";
 import { INCOME_TYPE_OPTIONS, INCOME_PREDICTABILITY_OPTIONS } from "@/lib/enums";
 import { FREQUENCY_OPTIONS } from "@/lib/calc";
-import { SectionHeader, EmptyState } from "../shared";
+import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
 import { addIncomeSource, saveIncomeSource, removeIncomeSource } from "./actions";
 
 function IncomeFields({ defaults }: { defaults?: Awaited<ReturnType<typeof listIncomeSources>>[number] }) {
@@ -118,6 +118,7 @@ export default async function IncomePage() {
           </form>
         </Card>
       )}
+      <SectionFooterNav currentHref="income" />
     </div>
   );
 }

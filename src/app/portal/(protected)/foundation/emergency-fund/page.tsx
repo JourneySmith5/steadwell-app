@@ -2,7 +2,7 @@ import { requireClient } from "@/lib/dal";
 import { Card, Button, Field, TextInput, TextArea } from "@/components/ui";
 import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { findEmergencyFund } from "@/lib/repo/emergencyFund";
-import { SectionHeader } from "../shared";
+import { SectionHeader, SectionFooterNav } from "../shared";
 import { saveEmergencyFund } from "./actions";
 
 export default async function EmergencyFundPage() {
@@ -38,6 +38,7 @@ export default async function EmergencyFundPage() {
           {!locked && <Button type="submit">Save</Button>}
         </form>
       </Card>
+      <SectionFooterNav currentHref="emergency-fund" />
     </div>
   );
 }

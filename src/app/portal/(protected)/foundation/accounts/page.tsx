@@ -3,7 +3,7 @@ import { Card, Button, Field, TextInput, Select } from "@/components/ui";
 import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listFinancialAccounts } from "@/lib/repo/financialAccounts";
 import { ACCOUNT_TYPE_OPTIONS } from "@/lib/enums";
-import { SectionHeader, EmptyState } from "../shared";
+import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
 import { addFinancialAccount, saveFinancialAccount, removeFinancialAccount } from "./actions";
 
 function AccountFields({ defaults }: { defaults?: Awaited<ReturnType<typeof listFinancialAccounts>>[number] }) {
@@ -76,6 +76,7 @@ export default async function AccountsPage() {
           </form>
         </Card>
       )}
+      <SectionFooterNav currentHref="accounts" />
     </div>
   );
 }

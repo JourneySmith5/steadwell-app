@@ -4,7 +4,7 @@ import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listBills, totalMonthlyBills } from "@/lib/repo/bills";
 import { BILL_FIXED_OR_VARIABLE_OPTIONS } from "@/lib/enums";
 import { FREQUENCY_OPTIONS } from "@/lib/calc";
-import { SectionHeader, EmptyState } from "../shared";
+import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
 import { addBill, saveBill, removeBill } from "./actions";
 
 function BillFields({ defaults }: { defaults?: Awaited<ReturnType<typeof listBills>>[number] }) {
@@ -96,6 +96,7 @@ export default async function BillsPage() {
           </form>
         </Card>
       )}
+      <SectionFooterNav currentHref="bills" />
     </div>
   );
 }

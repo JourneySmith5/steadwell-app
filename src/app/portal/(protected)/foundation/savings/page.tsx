@@ -2,7 +2,7 @@ import { requireClient } from "@/lib/dal";
 import { Card, Button, Field, TextInput } from "@/components/ui";
 import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listSavings } from "@/lib/repo/savings";
-import { SectionHeader, EmptyState } from "../shared";
+import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
 import { addSavings, saveSavingsRow, removeSavings } from "./actions";
 
 function SavingsFields({ defaults }: { defaults?: Awaited<ReturnType<typeof listSavings>>[number] }) {
@@ -68,6 +68,7 @@ export default async function SavingsPage() {
           </form>
         </Card>
       )}
+      <SectionFooterNav currentHref="savings" />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { Card, Button, Field, TextInput, Select, CheckboxField } from "@/compone
 import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listHouseholdMembers } from "@/lib/repo/householdMembers";
 import { HOUSEHOLD_RELATIONSHIP_OPTIONS } from "@/lib/enums";
-import { SectionHeader, EmptyState } from "../shared";
+import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
 import { addHouseholdMember, saveHouseholdMember, removeHouseholdMember } from "./actions";
 
 export default async function HouseholdPage() {
@@ -83,6 +83,7 @@ export default async function HouseholdPage() {
           </form>
         </Card>
       )}
+      <SectionFooterNav currentHref="household" />
     </div>
   );
 }

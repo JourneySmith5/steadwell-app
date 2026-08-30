@@ -3,7 +3,7 @@ import { Card, Button, Field, TextInput, Select } from "@/components/ui";
 import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listDebts, debtSummary } from "@/lib/repo/debts";
 import { DEBT_TYPE_OPTIONS } from "@/lib/enums";
-import { SectionHeader, EmptyState } from "../shared";
+import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
 import { addDebt, saveDebt, removeDebt } from "./actions";
 
 function DebtFields({ defaults }: { defaults?: Awaited<ReturnType<typeof listDebts>>[number] }) {
@@ -96,6 +96,7 @@ export default async function DebtsPage() {
           </form>
         </Card>
       )}
+      <SectionFooterNav currentHref="debts" />
     </div>
   );
 }

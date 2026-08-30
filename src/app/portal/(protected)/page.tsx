@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { requireClient } from "@/lib/dal";
-import { PageHeader, Card } from "@/components/ui";
+import { PageHeader, Card, Button } from "@/components/ui";
 import { STATUS_LABELS } from "@/lib/enums";
 
 export default async function PortalHomePage() {
@@ -18,6 +19,11 @@ export default async function PortalHomePage() {
           The full preparation checklist and next-action guidance for Home isn&apos;t built
           yet — this is a placeholder showing your pipeline status.
         </p>
+        <div className="mt-4">
+          <Link href="/portal/foundation">
+            <Button type="button">Continue to Financial Foundation →</Button>
+          </Link>
+        </div>
       </Card>
     </div>
   );

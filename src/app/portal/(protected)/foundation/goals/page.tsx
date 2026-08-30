@@ -3,7 +3,7 @@ import { Card, Button, Field, TextInput, TextArea, Select, CheckboxField } from 
 import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listGoals } from "@/lib/repo/goals";
 import { GOAL_PRIORITY_OPTIONS } from "@/lib/enums";
-import { SectionHeader, EmptyState } from "../shared";
+import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
 import { addGoal, saveGoal, removeGoal } from "./actions";
 
 function GoalFields({ defaults }: { defaults?: Awaited<ReturnType<typeof listGoals>>[number] }) {
@@ -89,6 +89,7 @@ export default async function GoalsPage() {
           </form>
         </Card>
       )}
+      <SectionFooterNav currentHref="goals" />
     </div>
   );
 }

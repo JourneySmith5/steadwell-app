@@ -2,7 +2,7 @@ import { requireClient } from "@/lib/dal";
 import { Card, Button, Field, TextInput, TextArea } from "@/components/ui";
 import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
-import { SectionHeader, EmptyState } from "../shared";
+import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
 import { addSinkingFund, saveSinkingFund, removeSinkingFund } from "./actions";
 
 function SinkingFundFields({ defaults }: { defaults?: Awaited<ReturnType<typeof listSinkingFunds>>[number] }) {
@@ -74,6 +74,7 @@ export default async function SinkingFundsPage() {
           </form>
         </Card>
       )}
+      <SectionFooterNav currentHref="sinking-funds" />
     </div>
   );
 }

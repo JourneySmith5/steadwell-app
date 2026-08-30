@@ -12,6 +12,7 @@ import { listSavings } from "@/lib/repo/savings";
 import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
 import { listGoals } from "@/lib/repo/goals";
 import { saveAdditionalInfo, submitIntake, requestUpdate } from "./actions";
+import { FOUNDATION_SECTIONS } from "./shared";
 
 const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -50,18 +51,22 @@ export default async function FoundationPage({
   // legitimate real answer, not "incomplete." A fuller build would let a
   // client mark a section explicitly N/A per §4; deferred for the same
   // reason per-section unlock is (see requestUpdate in actions.ts).
-  const rows: { href: string; label: string; status: string }[] = [
-    { href: "household", label: "Household", status: household.length ? `${household.length} member${household.length === 1 ? "" : "s"}` : "Not started" },
-    { href: "income", label: "Income", status: income.length ? `${income.length} source${income.length === 1 ? "" : "s"} · ${money(normalizedMonthlyIncome)}/mo` : "Not started" },
-    { href: "accounts", label: "Accounts", status: accounts.length ? `${accounts.length} account${accounts.length === 1 ? "" : "s"}` : "Not started" },
-    { href: "statements", label: "Statements", status: "Coming soon" },
-    { href: "bills", label: "Regular Bills", status: bills.length ? `${bills.length} bill${bills.length === 1 ? "" : "s"} · ${money(monthlyBills)}/mo` : "Not started" },
-    { href: "debts", label: "Debt", status: debts.length ? `${debts.length} debt${debts.length === 1 ? "" : "s"} · ${money(debts_.totalBalance)} total` : "None entered" },
-    { href: "emergency-fund", label: "Emergency Fund", status: ef ? `${money(ef.currentBalance)} of ${money(ef.target)} target` : "Not started" },
-    { href: "savings", label: "Savings", status: savings.length ? `${savings.length} account${savings.length === 1 ? "" : "s"}` : "None entered" },
-    { href: "sinking-funds", label: "Sinking Funds", status: sinking.length ? `${sinking.length} fund${sinking.length === 1 ? "" : "s"}` : "None entered" },
-    { href: "goals", label: "Financial Goals", status: goals.length ? `${goals.length} goal${goals.length === 1 ? "" : "s"}` : "Required — add at least one" },
-  ];
+  // Status text keyed by href — FOUNDATION_SECTIONS (imported from ./shared)
+  // is the single source of truth for section order/labels, shared with
+  // SectionFooterNav on each section page, so the two never drift apart.
+  const statusByHref: Record<string, string> = {
+    household: household.length ? `${household.length} member${household.length === 1 ? "" : "s"}` : "Not started",
+    income: income.length ? `${income.length} source${income.length === 1 ? "" : "s"} · ${money(normalizedMonthlyIncome)}/mo` : "Not started",
+    accounts: accounts.length ? `${accounts.length} account${accounts.length === 1 ? "" : "s"}` : "Not started",
+    statements: "Coming soon",
+    bills: bills.length ? `${bills.length} bill${bills.length === 1 ? "" : "s"} · ${money(monthlyBills)}/mo` : "Not started",
+    debts: debts.length ? `${debts.length} debt${debts.length === 1 ? "" : "s"} · ${money(debts_.totalBalance)} total` : "None entered",
+    "emergency-fund": ef ? `${money(ef.currentBalance)} of ${money(ef.target)} target` : "Not started",
+    savings: savings.length ? `${savings.length} account${savings.length === 1 ? "" : "s"}` : "None entered",
+    "sinking-funds": sinking.length ? `${sinking.length} fund${sinking.length === 1 ? "" : "s"}` : "None entered",
+    goals: goals.length ? `${goals.length} goal${goals.length === 1 ? "" : "s"}` : "Required — add at least one",
+  };
+  const rows = FOUNDATION_SECTIONS.map((s) => ({ ...s, status: statusByHref[s.href] ?? "" }));
 
   return (
     <div>
