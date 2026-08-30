@@ -23,7 +23,7 @@ function getResend(): Resend | null {
 
 async function deliver(to: string, subject: string, body: string, logTag: string) {
   const resend = getResend();
-  const from = process.env.EMAIL_FROM || "coach@steadwellcoaching.com";
+  const from = process.env.EMAIL_FROM || "steadwell@boldlybuilt.group";
   if (!resend) {
     console.log(`[${logTag}] to ${to} — "${subject}"`);
     return;
