@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template itself — no secrets in it, and it's the one place
+# every env var this app reads is documented in one spot.
+!.env.example
 
 # vercel
 .vercel

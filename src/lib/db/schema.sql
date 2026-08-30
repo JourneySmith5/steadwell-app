@@ -236,6 +236,7 @@ CREATE TABLE IF NOT EXISTS statements (
   account_nickname TEXT NOT NULL,
   month TEXT NOT NULL,
   file_url TEXT NOT NULL,
+  original_filename TEXT,
   uploaded_at TEXT NOT NULL DEFAULT (now())
 );
 
@@ -390,3 +391,16 @@ CREATE TABLE IF NOT EXISTS offboardings (
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
 CREATE INDEX IF NOT EXISTS idx_status_events_client ON status_events(client_id);
 CREATE INDEX IF NOT EXISTS idx_email_logs_client ON email_logs(client_id);
+
+-- ---------------------------------------------------------------------------
+-- Additive migrations
+-- ---------------------------------------------------------------------------
+-- This schema has no real migration runner — initSchema() (src/lib/db/
+-- client.ts) just re-runs this whole file against whatever database is
+-- already there, and every statement above is a no-op once the tables
+-- already exist (CREATE TABLE IF NOT EXISTS). That's fine for adding a new
+-- table, but adding a COLUMN to a table that's already live in production
+-- needs an explicit ALTER TABLE — the CREATE TABLE block above only takes
+-- effect on a genuinely fresh database. Put any future additive column
+-- changes here, following the same pattern.
+ALTER TABLE statements ADD COLUMN IF NOT EXISTS original_filename TEXT;

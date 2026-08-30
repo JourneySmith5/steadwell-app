@@ -9,6 +9,7 @@ import { listStatusEvents } from "@/lib/status";
 import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { findOffboardingByClientId } from "@/lib/repo/offboarding";
+import { listStatements } from "@/lib/repo/statements";
 import { PageHeader, Card, StatusBadge, Button } from "@/components/ui";
 import {
   PLAN_STATUS_LABELS,
@@ -41,17 +42,19 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
   const client = await findClientById(id);
   if (!client) notFound();
 
-  const [application, invitation, checkoutLink, payments, emails, timeline, meetings, subscription, offboarding] = await Promise.all([
-    findApplicationByClientId(id),
-    findInvitationByClientId(id),
-    findCheckoutLinkByClientId(id),
-    listPaymentsForClient(id),
-    listEmailsForClient(id),
-    listStatusEvents(id),
-    client.userId ? listMeetingsForClient(id) : Promise.resolve([]),
-    client.userId ? findSubscriptionByClientId(id) : Promise.resolve(undefined),
-    OFFBOARDING_TRIGGER_STATUSES.includes(client.status) ? findOffboardingByClientId(id) : Promise.resolve(undefined),
-  ]);
+  const [application, invitation, checkoutLink, payments, emails, timeline, meetings, subscription, offboarding, statements] =
+    await Promise.all([
+      findApplicationByClientId(id),
+      findInvitationByClientId(id),
+      findCheckoutLinkByClientId(id),
+      listPaymentsForClient(id),
+      listEmailsForClient(id),
+      listStatusEvents(id),
+      client.userId ? listMeetingsForClient(id) : Promise.resolve([]),
+      client.userId ? findSubscriptionByClientId(id) : Promise.resolve(undefined),
+      OFFBOARDING_TRIGGER_STATUSES.includes(client.status) ? findOffboardingByClientId(id) : Promise.resolve(undefined),
+      client.userId ? listStatements(id) : Promise.resolve([]),
+    ]);
   const subscriptionTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
 
   return (
@@ -230,6 +233,27 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
               ))}
             </ul>
           </Card>
+
+          {client.userId && (
+            <Card>
+              <h2 className="font-heading text-lg text-brand-dark mb-3">Statements</h2>
+              {statements.length === 0 && (
+                <p className="text-sm text-brand-slate">Client hasn&apos;t uploaded any statements yet.</p>
+              )}
+              <ul className="divide-y divide-brand-pale">
+                {statements.map((s) => (
+                  <li key={s.id} className="py-2 text-sm flex items-center justify-between">
+                    <span className="text-brand-dark">
+                      {s.accountNickname} — {s.month}
+                    </span>
+                    <a href={`/api/statements/${s.id}/download`} className="text-brand-dark underline hover:no-underline">
+                      Download
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
 
         <Card>
