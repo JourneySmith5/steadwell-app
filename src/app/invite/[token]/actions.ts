@@ -1,10 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { randomBytes } from "node:crypto";
 import { findInvitationByToken, markInvitationUsed } from "@/lib/repo/invitations";
 import { findClientById, linkClientToUser } from "@/lib/repo/clients";
-import { createUser, findUserByEmail } from "@/lib/repo/users";
+import { createUser, findUserByEmail, markEmailVerified } from "@/lib/repo/users";
 import { hashPassword, validatePasswordPolicy } from "@/lib/password";
 import { setClientStatus } from "@/lib/status";
 import { getSession } from "@/lib/session";
@@ -35,29 +34,32 @@ export async function acceptInvitation(
   }
 
   const passwordHash = await hashPassword(password);
-  const emailVerifyToken = randomBytes(24).toString("hex");
-  const emailVerifyExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
 
+  // No separate "verify your email" round-trip here: the client already
+  // proved they control this address by receiving and clicking Coach's
+  // invitation link (invitations are single-use tokens sent to a specific
+  // client's email — see src/lib/repo/invitations.ts). Sending a second
+  // verification email and making them click through it again was a
+  // needless extra hop (and previously a broken one — this only ever
+  // console.log'd the link instead of sending it). Mark verified up front
+  // and go straight to 2FA setup instead.
   const user = await createUser({
     email: client.email,
     passwordHash,
     role: "client",
-    emailVerifyToken,
-    emailVerifyExpiresAt,
+    emailVerifyToken: "invite-link-already-verified-ownership",
+    emailVerifyExpiresAt: new Date(0).toISOString(),
   });
+  await markEmailVerified(user.id);
 
   await linkClientToUser(client.id, user.id);
   await markInvitationUsed(invitation.id);
   await setClientStatus(client.id, "account_setup_pending", "Client set account password");
-
-  // Dev stand-in for a real transactional email send — see README.
-  const verifyUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/verify-email/${emailVerifyToken}`;
-  console.log(`[email:verify] to ${user.email} — ${verifyUrl}`);
 
   const session = await getSession();
   session.userId = user.id;
   session.totpVerified = true; // nothing to challenge yet — see dal.ts comment
   await session.save();
 
-  redirect("/verify-email/pending");
+  redirect("/portal/account/setup-2fa");
 }
