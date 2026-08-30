@@ -1,9 +1,9 @@
 import { STATUS_LABELS, type ClientStatus } from "@/lib/enums";
 import type { ReactNode } from "react";
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
   return (
-    <div className={`bg-white border border-brand-pale rounded-lg shadow-sm p-6 ${className}`}>{children}</div>
+    <div id={id} className={`bg-white border border-brand-pale rounded-lg shadow-sm p-6 ${className}`}>{children}</div>
   );
 }
 

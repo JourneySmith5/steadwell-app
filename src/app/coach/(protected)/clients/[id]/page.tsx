@@ -236,7 +236,7 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
           </Card>
 
           {client.userId && (
-            <Card>
+            <Card id="statements">
               <h2 className="font-heading text-lg text-brand-dark mb-3">Statements</h2>
               {statements.length === 0 && (
                 <p className="text-sm text-brand-slate">Client hasn&apos;t uploaded any statements yet.</p>

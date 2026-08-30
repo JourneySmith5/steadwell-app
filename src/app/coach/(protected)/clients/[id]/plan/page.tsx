@@ -8,6 +8,7 @@ import { findEmergencyFund } from "@/lib/repo/emergencyFund";
 import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
 import { listSavings } from "@/lib/repo/savings";
 import { Card, Field, TextInput, TextArea, Button } from "@/components/ui";
+import Link from "next/link";
 import { PlanBuilderHeader, money } from "./shared";
 import { saveBaseline } from "./actions";
 
@@ -45,9 +46,12 @@ export default async function PlanBaselinePage(props: PageProps<"/coach/clients/
       <Card className="mb-6">
         <h2 className="font-heading text-lg text-brand-dark mb-1">Stage 1 — Financial Baseline</h2>
         <p className="text-sm text-brand-slate mb-4">
-          Pulled from Foundation Intake, plus Coach&apos;s estimate of typical additional spending (statement
-          upload isn&apos;t built yet — see README — so this one figure is Coach-entered rather than
-          calculated from statements).
+          Pulled from Foundation Intake, plus Coach&apos;s estimate of typical additional spending. This figure
+          is entered by Coach, not calculated automatically —{" "}
+          <Link href={`/coach/clients/${clientId}#statements`} className="underline hover:no-underline">
+            review the client&apos;s uploaded statements
+          </Link>{" "}
+          yourself and use your judgment; nothing in the statements is read or summarized by AI.
         </p>
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
           <Stat label="Normalized Monthly Income" value={money(baseline.normalizedMonthlyIncome)} />
@@ -61,7 +65,7 @@ export default async function PlanBaselinePage(props: PageProps<"/coach/clients/
         </div>
 
         <form action={saveBaseline.bind(null, clientId)} className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-          <Field label="Historical spending average (monthly)" hint="Coach's estimate — statement upload isn't built yet.">
+          <Field label="Historical spending average (monthly)" hint="Coach's estimate, based on your own review of the client's statements — not calculated or read by AI.">
             <TextInput
               type="number"
               step="0.01"
