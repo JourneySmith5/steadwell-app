@@ -26,6 +26,17 @@ export default async function StatementsPage({
         the numbers you enter under Accounts, and helps Coach spot things a summary alone won&apos;t show.
       </p>
 
+      <div className="bg-brand-pale/40 rounded-md px-4 py-3 mb-4 text-sm text-brand-dark">
+        <p className="font-medium mb-1">What to upload</p>
+        <ul className="list-disc list-inside space-y-0.5 text-brand-slate">
+          <li>Checking &amp; savings accounts — your last 3 months of statements</li>
+          <li>Credit card accounts — at least your most recent month&apos;s statement</li>
+        </ul>
+        <p className="text-xs text-brand-slate/70 mt-2">
+          You can select multiple files at once and upload all months for an account together.
+        </p>
+      </div>
+
       {statements.length === 0 && <EmptyState>No statements uploaded yet.</EmptyState>}
 
       {statements.length > 0 && (
@@ -88,8 +99,7 @@ export default async function StatementsPage({
                 className="block w-full text-sm text-brand-slate file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand-pale file:text-brand-dark file:text-sm file:font-medium hover:file:bg-brand-pale/70"
               />
               <p className="text-xs text-brand-slate/60 mt-1">
-                Select multiple files at once (e.g. ctrl/cmd-click) — upload as many months as you have for this
-                account in one go, no need to label or separate them by month.
+                Select multiple files at once (e.g. ctrl/cmd-click) — no need to label or separate them by month.
               </p>
             </Field>
           </div>
