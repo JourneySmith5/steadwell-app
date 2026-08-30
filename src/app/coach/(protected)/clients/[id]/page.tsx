@@ -245,7 +245,8 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                 {statements.map((s) => (
                   <li key={s.id} className="py-2 text-sm flex items-center justify-between">
                     <span className="text-brand-dark">
-                      {s.accountNickname} — {formatStatementMonth(s.month)}
+                      {s.accountNickname}
+                      {formatStatementMonth(s.month) ? ` — ${formatStatementMonth(s.month)}` : ""}
                     </span>
                     <a href={`/api/statements/${s.id}/download`} className="text-brand-dark underline hover:no-underline">
                       Download

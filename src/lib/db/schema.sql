@@ -234,7 +234,7 @@ CREATE TABLE IF NOT EXISTS statements (
   id TEXT PRIMARY KEY,
   client_id TEXT NOT NULL REFERENCES clients(id),
   account_nickname TEXT NOT NULL,
-  month TEXT NOT NULL,
+  month TEXT,
   file_url TEXT NOT NULL,
   original_filename TEXT,
   uploaded_at TEXT NOT NULL DEFAULT (now())
@@ -404,3 +404,9 @@ CREATE INDEX IF NOT EXISTS idx_email_logs_client ON email_logs(client_id);
 -- effect on a genuinely fresh database. Put any future additive column
 -- changes here, following the same pattern.
 ALTER TABLE statements ADD COLUMN IF NOT EXISTS original_filename TEXT;
+-- Month labeling turned out to be the wrong shape: one label was getting
+-- forced onto an entire batch of files (e.g. 3 months' worth uploaded
+-- together), which is actively misleading rather than just unlabeled.
+-- Dropped from the upload form; Coach opens each file to see its real
+-- period. Existing rows keep whatever month they already have.
+ALTER TABLE statements ALTER COLUMN month DROP NOT NULL;

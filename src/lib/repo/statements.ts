@@ -4,7 +4,11 @@ export interface StatementRow {
   id: string;
   clientId: string;
   accountNickname: string;
-  month: string;
+  // Month labeling was dropped from the upload form — forcing one label
+  // onto a whole batch of files was actively misleading (see schema.sql's
+  // "Additive migrations" note). Existing rows keep whatever month they
+  // already have; new uploads have none.
+  month: string | null;
   fileUrl: string;
   originalFilename: string | null;
   uploadedAt: string;
@@ -14,7 +18,7 @@ interface StatementDbRow {
   id: string;
   client_id: string;
   account_nickname: string;
-  month: string;
+  month: string | null;
   file_url: string;
   original_filename: string | null;
   uploaded_at: string;
@@ -48,7 +52,7 @@ export async function findStatementById(id: string): Promise<StatementRow | unde
 export async function createStatement(params: {
   clientId: string;
   accountNickname: string;
-  month: string;
+  month?: string | null;
   fileUrl: string;
   originalFilename: string | null;
 }): Promise<StatementRow> {
@@ -60,7 +64,7 @@ export async function createStatement(params: {
       $id: id,
       $clientId: params.clientId,
       $accountNickname: params.accountNickname,
-      $month: params.month,
+      $month: params.month ?? null,
       $fileUrl: params.fileUrl,
       $originalFilename: params.originalFilename,
       $now: nowIso(),

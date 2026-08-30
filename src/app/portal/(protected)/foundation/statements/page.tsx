@@ -3,7 +3,7 @@ import { Card, Button, Field, TextInput, Select, ErrorText } from "@/components/
 import { SectionHeader, SectionFooterNav, EmptyState } from "../shared";
 import { listStatements } from "@/lib/repo/statements";
 import { listFinancialAccounts } from "@/lib/repo/financialAccounts";
-import { recentMonthOptions, formatStatementMonth } from "@/lib/statementMonths";
+import { formatStatementMonth } from "@/lib/statementMonths";
 import { uploadStatement, removeStatement } from "./actions";
 
 export default async function StatementsPage({
@@ -17,7 +17,6 @@ export default async function StatementsPage({
   const clientId = user.client.id;
 
   const [statements, accounts] = await Promise.all([listStatements(clientId), listFinancialAccounts(clientId)]);
-  const monthOptions = recentMonthOptions(5);
 
   return (
     <div>
@@ -36,7 +35,8 @@ export default async function StatementsPage({
               <li key={s.id} className="flex items-center justify-between px-6 py-4">
                 <div>
                   <p className="text-sm font-medium text-brand-dark">
-                    {s.accountNickname} — {formatStatementMonth(s.month)}
+                    {s.accountNickname}
+                    {formatStatementMonth(s.month) ? ` — ${formatStatementMonth(s.month)}` : ""}
                   </p>
                   <p className="text-xs text-brand-slate/70">
                     Uploaded {new Date(s.uploadedAt).toLocaleDateString()}
@@ -77,15 +77,6 @@ export default async function StatementsPage({
               <TextInput name="accountNickname" placeholder="e.g. Chase Checking" required />
             )}
           </Field>
-          <Field label="Statement Month" required>
-            <Select name="month" defaultValue={monthOptions[0].value} required>
-              {monthOptions.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
           <div className="sm:col-span-2">
             <Field label="Files" required>
               <input
@@ -97,8 +88,8 @@ export default async function StatementsPage({
                 className="block w-full text-sm text-brand-slate file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand-pale file:text-brand-dark file:text-sm file:font-medium hover:file:bg-brand-pale/70"
               />
               <p className="text-xs text-brand-slate/60 mt-1">
-                Select multiple files at once (e.g. ctrl/cmd-click) if you have more than one for this account and
-                month.
+                Select multiple files at once (e.g. ctrl/cmd-click) — upload as many months as you have for this
+                account in one go, no need to label or separate them by month.
               </p>
             </Field>
           </div>
