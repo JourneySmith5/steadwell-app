@@ -6,6 +6,7 @@ const NAV = [
   { href: "/coach", label: "Dashboard" },
   { href: "/coach/clients", label: "Clients" },
   { href: "/coach/settings/discount-codes", label: "Discount Codes" },
+  { href: "/coach/settings/booking-links", label: "Booking Links" },
 ];
 
 // Shell for all of /coach*, including the 2FA setup page — so this only

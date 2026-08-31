@@ -179,6 +179,32 @@ CREATE TABLE IF NOT EXISTS discount_codes (
   created_at TEXT NOT NULL DEFAULT (now())
 );
 
+-- Coach-managed Google Calendar Appointment Schedule links (Coach Settings
+-- → Booking Links). `key` is the stable identifier code looks up by — the
+-- app reads a link by key, never by the coach-editable `label`, so renaming
+-- a link in Settings never breaks whatever email/page reads it. `url` is
+-- nullable: a link can exist (so Coach has a place to fill it in later)
+-- before the real URL is known.
+CREATE TABLE IF NOT EXISTS booking_links (
+  id TEXT PRIMARY KEY,
+  key TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  url TEXT,
+  created_at TEXT NOT NULL DEFAULT (now()),
+  updated_at TEXT NOT NULL DEFAULT (now())
+);
+
+-- Seed the meeting types the app already looks up by key. ON CONFLICT (key)
+-- DO NOTHING means this only ever inserts once per key — re-running it on
+-- every cold start (see initSchema()) never overwrites a URL Coach has
+-- since set, and Coach can still rename the label or delete the row
+-- entirely without it coming back.
+INSERT INTO booking_links (id, key, label, url, created_at, updated_at) VALUES
+  ('seed-booking-foundation-intake', 'foundation_intake', 'Foundation Intake Meeting', NULL, now(), now()),
+  ('seed-booking-foundation-plan-review', 'foundation_plan_review', 'Foundation Plan Review', NULL, now(), now()),
+  ('seed-booking-accountability', 'accountability', 'Accountability Meeting', NULL, now(), now())
+ON CONFLICT (key) DO NOTHING;
+
 -- ---------------------------------------------------------------------------
 -- §4 Secure Financial Foundation Intake
 -- ---------------------------------------------------------------------------

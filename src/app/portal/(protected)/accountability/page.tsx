@@ -4,6 +4,7 @@ import { ACCOUNTABILITY_TIERS, SUBSCRIPTION_STATUS_LABELS, MEETING_STATUS_LABELS
 import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { STRIPE_CONFIGURED } from "@/lib/stripe";
+import { findBookingLinkUrl } from "@/lib/repo/bookingLinks";
 import { chooseAccountabilityTier, changeTier, cancelSubscription } from "./actions";
 
 function dollars(cents: number) {
@@ -26,13 +27,13 @@ export default async function AccountabilityPage(props: PageProps<"/portal/accou
     );
   }
 
-  const [subscription, meetings] = await Promise.all([
+  const [subscription, meetings, bookingUrl] = await Promise.all([
     findSubscriptionByClientId(client.id),
     listMeetingsForClient(client.id),
+    findBookingLinkUrl("accountability"),
   ]);
   const isActive = subscription?.status === "active";
   const currentTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
-  const bookingUrl = process.env.GOOGLE_CALENDAR_BOOKING_URL;
 
   return (
     <div>

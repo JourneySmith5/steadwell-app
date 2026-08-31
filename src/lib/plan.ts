@@ -4,6 +4,7 @@ import { setClientStatus } from "@/lib/status";
 import { computeAllocationSummary } from "@/lib/planCalc";
 import { nowIso } from "@/lib/db/client";
 import { sendSystemEmail, planActivatedTemplate } from "@/lib/email";
+import { findBookingLinkUrl } from "@/lib/repo/bookingLinks";
 
 // Auto-transition on first real touch of the Plan Builder — same pattern as
 // Foundation Intake's getOrCreateFoundationIntake: no separate "start"
@@ -68,7 +69,8 @@ export async function presentPlan(clientId: string): Promise<boolean> {
   // delivery fails, same as the other auto-sent templates (offboarding
   // reminders) — Coach would need to follow up directly.
   try {
-    const { subject, body } = planActivatedTemplate(client.fullName, process.env.GOOGLE_CALENDAR_BOOKING_URL || null);
+    const bookingUrl = await findBookingLinkUrl("foundation_plan_review");
+    const { subject, body } = planActivatedTemplate(client.fullName, bookingUrl);
     await sendSystemEmail({ clientId, template: "plan_activated", subject, body });
   } catch (err) {
     console.error(`Failed to send plan_activated email for client ${clientId}:`, err);
