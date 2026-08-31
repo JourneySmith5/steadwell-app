@@ -179,6 +179,21 @@ CREATE TABLE IF NOT EXISTS discount_codes (
   created_at TEXT NOT NULL DEFAULT (now())
 );
 
+-- Seeds the two discount codes named in the blueprint (§9), disabled by
+-- default — Coach turns them on from /coach/settings/discount-codes once
+-- actually offering one. This used to only happen via scripts/seed.ts
+-- (ensureSeedDiscountCodes), which requires local Node — nothing else ever
+-- called it, so on a deployment bootstrapped without running that script
+-- (e.g. via the one-time /api/setup/seed-coach route) no codes ever
+-- existed and the Settings page showed an empty list. Seeding it directly
+-- here means it always runs on cold start regardless. ON CONFLICT (code)
+-- DO NOTHING means this only ever inserts once — re-running it never
+-- re-enables a code Coach has since turned off.
+INSERT INTO discount_codes (id, code, percent_off, enabled, created_at) VALUES
+  ('seed-discount-family100', 'FAMILY100', 100, 0, now()),
+  ('seed-discount-friends50', 'FRIENDS50', 50, 0, now())
+ON CONFLICT (code) DO NOTHING;
+
 -- Coach-managed Google Calendar Appointment Schedule links (Coach Settings
 -- → Booking Links). `key` is the stable identifier code looks up by — the
 -- app reads a link by key, never by the coach-editable `label`, so renaming
