@@ -50,7 +50,7 @@ export default async function StressTestPage(props: PageProps<"/coach/clients/[i
       <Card>
         <h3 className="text-sm font-medium text-brand-dark mb-3">Result</h3>
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-2">
-          <Stat label="Baseline Cash Flow" value={money(result.baseline.availableMonthlyCashFlow)} />
+          <Stat label="Baseline Income Available to Plan" value={money(result.baseline.incomeAvailableToPlan)} />
           <Stat label="Income Removed" value={money(result.excludedMonthly)} />
           <Stat label="Stressed Cash Flow" value={money(result.stressedAvailable)} />
           <Stat

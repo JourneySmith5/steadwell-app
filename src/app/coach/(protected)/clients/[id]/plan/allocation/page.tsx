@@ -38,7 +38,7 @@ export default async function AllocationPage(props: PageProps<"/coach/clients/[i
       <Card className="mb-6">
         <h2 className="font-heading text-lg text-brand-dark mb-3">Stage 3 — Cash-Flow Allocation Workspace</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-2">
-          <Stat label="Planned Income" value={money(summary.availableMonthlyCashFlow)} />
+          <Stat label="Planned Income" value={money(summary.incomeAvailableToPlan)} />
           <Stat label="Planned Outflow" value={money(summary.plannedOutflowTotal)} />
           <Stat
             label="Difference"
@@ -48,8 +48,10 @@ export default async function AllocationPage(props: PageProps<"/coach/clients/[i
           <Stat label="Status" value={summary.difference === 0 ? "Balanced" : "Not balanced"} emphasis={summary.difference === 0 ? "good" : "warn"} />
         </div>
         <p className="text-xs text-brand-slate/70">
-          The plan can&apos;t be finalized until the difference is $0. Debt Acceleration and Goals totals below
-          come from the Debt Strategy and Savings &amp; Goals pages.
+          Planned Income is income minus fixed obligations only (bills &amp; debt minimums) — not minus historical
+          spending, since redirecting that spending is the point of the plan. The plan can&apos;t be finalized
+          until the difference is $0. Debt Acceleration and Goals totals below come from the Debt Strategy and
+          Savings &amp; Goals pages.
         </p>
       </Card>
 

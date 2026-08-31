@@ -9,15 +9,30 @@ import { listAllocationLines, findEmergencyAllocation } from "@/lib/repo/allocat
 import { totalPlannedDebtPayments, listDebtDecisions } from "@/lib/repo/debtDecisions";
 
 // §5 Stage 1 — Financial Baseline. "Historical statement spending average"
-// is Coach-entered (clients.plan_historical_spending_monthly): real
-// statement upload/parsing isn't built (see the Statements stub in
-// Foundation Intake), so this is the honest stand-in — a real number Coach
-// enters, not a fake computed one.
+// is Coach-entered (clients.plan_historical_spending_monthly) — Coach's own
+// estimate/read of the client's statements, not a computed or AI-derived
+// figure.
+//
+// Two different "how much is there" numbers live here, and they're kept
+// deliberately separate:
+//   - availableMonthlyCashFlow: the status-quo number — income minus bills,
+//     debt minimums, AND historical (i.e. current-habit) spending. This is
+//     "what's left over if nothing changes" — useful as a diagnostic on
+//     Stage 1 (often negative; that's the point, it shows the household is
+//     currently upside down), but it is NOT what Coach plans against.
+//   - incomeAvailableToPlan: income minus ONLY the true fixed obligations
+//     (bills + debt minimums). This is the real pool the Cash-Flow
+//     Allocation Workspace (Stage 3) divides up across flexible spending
+//     categories, emergency fund, sinking funds, debt acceleration, and
+//     goals. Subtracting historical spending again here would double-count
+//     it — the whole point of the plan is to redirect that spending
+//     intentionally, not to treat it as already spoken for.
 export interface PlanBaseline {
   normalizedMonthlyIncome: number;
   monthlyBills: number;
   debtMinimums: number;
   historicalSpendingMonthly: number;
+  incomeAvailableToPlan: number;
   availableMonthlyCashFlow: number;
 }
 
@@ -30,12 +45,14 @@ export async function computeBaseline(clientId: string): Promise<PlanBaseline> {
   ]);
   const debtMinimums = debtSum.totalMinimumPayments;
   const historicalSpendingMonthly = client?.planHistoricalSpendingMonthly ?? 0;
+  const incomeAvailableToPlan = normalizedMonthlyIncome - monthlyBills - debtMinimums;
   return {
     normalizedMonthlyIncome,
     monthlyBills,
     debtMinimums,
     historicalSpendingMonthly,
-    availableMonthlyCashFlow: normalizedMonthlyIncome - monthlyBills - debtMinimums - historicalSpendingMonthly,
+    incomeAvailableToPlan,
+    availableMonthlyCashFlow: incomeAvailableToPlan - historicalSpendingMonthly,
   };
 }
 
@@ -93,11 +110,12 @@ export function computeGoalCompletion(target: number, currentAmount: number, pla
 }
 
 // §6 — the Cash-Flow Allocation Workspace's live balance check: Planned
-// Income (the Stage-1 Available Monthly Cash Flow) vs Planned Outflow (every
-// category Coach has allocated so far) vs Difference. The plan can't
-// finalize while difference !== 0.
+// Income (Stage-1 income minus true fixed obligations — see
+// incomeAvailableToPlan above, NOT the status-quo Available Monthly Cash
+// Flow) vs Planned Outflow (every category Coach has allocated so far) vs
+// Difference. The plan can't finalize while difference !== 0.
 export interface AllocationSummary {
-  availableMonthlyCashFlow: number;
+  incomeAvailableToPlan: number;
   flexPlannedTotal: number;
   flexHistoricalTotal: number;
   emergencyPlanned: number;
@@ -125,7 +143,7 @@ export async function computeAllocationSummary(clientId: string): Promise<Alloca
   const plannedOutflowTotal = flexPlannedTotal + emergencyPlanned + sinkingPlannedTotal + debtAccelerationTotal + goalsPlannedTotal;
 
   return {
-    availableMonthlyCashFlow: baseline.availableMonthlyCashFlow,
+    incomeAvailableToPlan: baseline.incomeAvailableToPlan,
     flexPlannedTotal,
     flexHistoricalTotal,
     emergencyPlanned,
@@ -133,7 +151,7 @@ export async function computeAllocationSummary(clientId: string): Promise<Alloca
     debtAccelerationTotal,
     goalsPlannedTotal,
     plannedOutflowTotal,
-    difference: Math.round((baseline.availableMonthlyCashFlow - plannedOutflowTotal) * 100) / 100,
+    difference: Math.round((baseline.incomeAvailableToPlan - plannedOutflowTotal) * 100) / 100,
   };
 }
 
@@ -189,11 +207,13 @@ export async function generateGoalInsights(clientId: string): Promise<{ text: st
   return insights;
 }
 
-// §8 Stage 6 Stress Test — a stateless "what if" recompute: available cash
-// flow if the given income sources went to zero, compared against the
-// already-planned total outflow (which doesn't change — Coach reacts to the
-// resulting shortfall by adjusting allocations elsewhere, not the other way
-// around). Nothing here is persisted; it's recomputed per request.
+// §8 Stage 6 Stress Test — a stateless "what if" recompute: the income
+// available to plan (see incomeAvailableToPlan above — NOT the status-quo
+// Available Monthly Cash Flow) if the given income sources went to zero,
+// compared against the already-planned total outflow (which doesn't
+// change — Coach reacts to the resulting shortfall by adjusting
+// allocations elsewhere, not the other way around). Nothing here is
+// persisted; it's recomputed per request.
 export async function computeStressTest(clientId: string, excludedIncomeSourceIds: string[]) {
   const [baseline, incomeSources, summary] = await Promise.all([
     computeBaseline(clientId),
@@ -203,7 +223,7 @@ export async function computeStressTest(clientId: string, excludedIncomeSourceId
   const excludedMonthly = incomeSources
     .filter((s) => excludedIncomeSourceIds.includes(s.id))
     .reduce((sum, s) => sum + s.normalizedMonthly, 0);
-  const stressedAvailable = baseline.availableMonthlyCashFlow - excludedMonthly;
+  const stressedAvailable = baseline.incomeAvailableToPlan - excludedMonthly;
   return {
     baseline,
     excludedMonthly,

@@ -89,9 +89,22 @@ export default async function PlanBaselinePage(props: PageProps<"/coach/clients/
           <Stat label="Debt Minimums" value={money(baseline.debtMinimums)} />
           <Stat label="Historical Spending" value={money(baseline.historicalSpendingMonthly)} />
         </dl>
-        <div className="bg-brand-pale/40 rounded-md px-4 py-3 mb-4">
-          <span className="text-sm text-brand-dark font-medium">Available Monthly Cash Flow: </span>
+        <div className="bg-brand-pale/40 rounded-md px-4 py-3 mb-2">
+          <span className="text-sm text-brand-dark font-medium">If nothing changes: </span>
           <span className="text-lg font-heading text-brand-dark">{money(baseline.availableMonthlyCashFlow)}</span>
+          <span className="text-xs text-brand-slate/70 block mt-0.5">
+            Income minus bills, debt minimums, and historical spending — what&apos;s actually left over at the end
+            of the month under current habits.
+          </span>
+        </div>
+        <div className="bg-brand-pale/40 rounded-md px-4 py-3 mb-4">
+          <span className="text-sm text-brand-dark font-medium">Income Available to Plan: </span>
+          <span className="text-lg font-heading text-brand-dark">{money(baseline.incomeAvailableToPlan)}</span>
+          <span className="text-xs text-brand-slate/70 block mt-0.5">
+            Income minus only bills and debt minimums — the real pool Stage 3&apos;s Cash-Flow Allocation Workspace
+            divides up. Historical spending isn&apos;t subtracted here; redirecting it is the plan&apos;s job, not
+            a given.
+          </span>
         </div>
 
         <form action={saveBaseline.bind(null, clientId)} className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
