@@ -5,7 +5,7 @@ import { findClientById } from "@/lib/repo/clients";
 import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { Card, PageHeader, Field, TextInput, TextArea, Select, Button } from "@/components/ui";
 import { MEETING_TYPES, MEETING_STATUSES, MEETING_STATUS_LABELS } from "@/lib/enums";
-import { addMeeting, saveMeeting, removeMeeting } from "./actions";
+import { addMeeting, saveMeeting, removeMeeting, markFoundationReviewCompleteAndEmailPlan } from "./actions";
 
 export default async function MeetingsPage(props: PageProps<"/coach/clients/[id]/meetings">) {
   await requireCoach();
@@ -65,7 +65,11 @@ export default async function MeetingsPage(props: PageProps<"/coach/clients/[id]
       </Card>
 
       <Card>
-        <h2 className="font-heading text-lg text-brand-dark mb-3">Meeting History</h2>
+        <h2 className="font-heading text-lg text-brand-dark mb-1">Meeting History</h2>
+        <p className="text-xs text-brand-slate/70 mb-3">
+          For a Foundation meeting, &quot;Mark Complete &amp; Email Plan&quot; drafts an email with the plan PDF
+          attached and starts THANKYOU15&apos;s 24-hour Accountability-signup window the moment you send it.
+        </p>
         {meetings.length === 0 && <p className="text-sm text-brand-slate/70 italic">None logged yet.</p>}
         {meetings.map((m) => (
           <div key={m.id} className="mb-4 pb-4 border-b border-brand-pale last:border-0">
@@ -107,12 +111,28 @@ export default async function MeetingsPage(props: PageProps<"/coach/clients/[id]
                 </Button>
               </div>
             </form>
-            <form action={removeMeeting.bind(null, clientId)} className="mt-2">
-              <input type="hidden" name="id" value={m.id} />
-              <Button type="submit" variant="danger" className="text-xs px-2 py-1">
-                Remove
-              </Button>
-            </form>
+            <div className="flex items-center gap-2 mt-2">
+              <form action={removeMeeting.bind(null, clientId)}>
+                <input type="hidden" name="id" value={m.id} />
+                <Button type="submit" variant="danger" className="text-xs px-2 py-1">
+                  Remove
+                </Button>
+              </form>
+              {m.type === "Foundation" && (
+                <form action={markFoundationReviewCompleteAndEmailPlan.bind(null, clientId)}>
+                  <input type="hidden" name="meetingId" value={m.id} />
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    className="text-xs px-2 py-1"
+                    disabled={client.planStatus !== "active"}
+                    title={client.planStatus !== "active" ? "Finalize and present the plan first." : undefined}
+                  >
+                    Mark Complete &amp; Email Plan
+                  </Button>
+                </form>
+              )}
+            </div>
           </div>
         ))}
       </Card>

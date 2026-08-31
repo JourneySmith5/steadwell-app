@@ -1,6 +1,7 @@
 import "server-only";
 import { getStripe } from "@/lib/stripe";
 import { findActiveDiscountCode } from "@/lib/repo/discountCodes";
+import { getBirthday20Eligibility } from "@/lib/promotions";
 import {
   createPendingPayment,
   findPaymentById,
@@ -12,20 +13,56 @@ import { setClientStatus } from "@/lib/status";
 import { findClientById, type ClientRow } from "@/lib/repo/clients";
 import { FOUNDATION_FEE_CENTS } from "@/lib/enums";
 
-export async function computeFoundationPriceCents(discountCode?: string | null): Promise<{
+// One code typed in by hand (§9 stacking: "all applicable codes stack" —
+// additively, capped at 100% off) plus BIRTHDAY20 applied automatically
+// when it's the client's birth month. A client can never apply the same
+// code twice — there's only ever one text field — and can't type their way
+// into BIRTHDAY20 or THANKYOU15 early: BIRTHDAY20 below only ever comes
+// from the automatic eligibility check, never from what was typed, and
+// THANKYOU15 is Accountability-only (see startAccountabilityCheckout in
+// src/lib/accountability.ts) so it's rejected here outright.
+//
+// client is optional/nullable so a not-yet-known client (this runs before
+// login on the public agreement/checkout flow) degrades to "no birth-month
+// discount" rather than throwing — realistically that's the common case
+// here anyway, since date of birth isn't collected until Foundation Intake,
+// which happens *after* this one-time fee is paid.
+export async function computeFoundationPriceCents(
+  discountCode: string | null | undefined,
+  client: Pick<ClientRow, "dateOfBirth"> | null | undefined
+): Promise<{
   amountCents: number;
-  appliedCode: string | null;
-  percentOff: number;
+  appliedCodes: { code: string; percentOff: number }[];
+  totalPercentOff: number;
   invalidCode: boolean;
 }> {
+  const applied: { code: string; percentOff: number }[] = [];
+  let invalidCode = false;
+
   const trimmed = discountCode?.trim();
-  if (!trimmed) return { amountCents: FOUNDATION_FEE_CENTS, appliedCode: null, percentOff: 0, invalidCode: false };
+  if (trimmed) {
+    const upper = trimmed.toUpperCase();
+    if (upper === "THANKYOU15") {
+      invalidCode = true; // Accountability-only, never valid on this one-time fee.
+    } else if (upper === "BIRTHDAY20") {
+      // No free-text bypass — handled below via the real eligibility check
+      // whether or not it was typed, so typing it outside the birth month
+      // just does nothing (not flagged invalid either; see the checkout
+      // page, which only shows the "invalid" message for a code that isn't
+      // getting applied at all).
+    } else {
+      const found = await findActiveDiscountCode(trimmed);
+      if (found) applied.push({ code: found.code, percentOff: found.percentOff });
+      else invalidCode = true;
+    }
+  }
 
-  const found = await findActiveDiscountCode(trimmed);
-  if (!found) return { amountCents: FOUNDATION_FEE_CENTS, appliedCode: null, percentOff: 0, invalidCode: true };
+  const birthday = await getBirthday20Eligibility(client);
+  if (birthday.eligible) applied.push({ code: "BIRTHDAY20", percentOff: birthday.percentOff });
 
-  const amountCents = Math.round(FOUNDATION_FEE_CENTS * (1 - found.percentOff / 100));
-  return { amountCents, appliedCode: found.code, percentOff: found.percentOff, invalidCode: false };
+  const totalPercentOff = Math.min(100, applied.reduce((sum, a) => sum + a.percentOff, 0));
+  const amountCents = Math.round(FOUNDATION_FEE_CENTS * (1 - totalPercentOff / 100));
+  return { amountCents, appliedCodes: applied, totalPercentOff, invalidCode };
 }
 
 // Starts a Foundation checkout. With real Stripe keys configured, creates an
@@ -39,7 +76,12 @@ export async function startFoundationCheckout(
   token: string,
   discountCode: string | null
 ): Promise<{ mode: "stripe"; url: string } | { mode: "test"; paymentId: string }> {
-  const { amountCents, appliedCode } = await computeFoundationPriceCents(discountCode);
+  const { amountCents, appliedCodes } = await computeFoundationPriceCents(discountCode, client);
+  // payments.discount_code is a single text column (predates stacking) —
+  // joined here rather than widened into a real one-to-many relationship,
+  // since it's a record of what happened on this payment, not something
+  // anything else queries by individual code.
+  const appliedCode = appliedCodes.length > 0 ? appliedCodes.map((a) => a.code).join("+") : null;
   const stripe = getStripe();
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 

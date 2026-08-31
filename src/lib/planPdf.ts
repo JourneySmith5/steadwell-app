@@ -1,4 +1,5 @@
 import "server-only";
+import PDFDocument from "pdfkit";
 import type { ClientRow } from "@/lib/repo/clients";
 import { computeBaseline, computeAllocationSummary, computeGoalCompletion } from "@/lib/planCalc";
 import { listAllocationLines, findEmergencyAllocation } from "@/lib/repo/allocationLines";
@@ -102,4 +103,23 @@ export async function writePlanSections(doc: PDFKit.PDFDocument, client: ClientR
       line(`${a.description}${a.dueDate ? ` — by ${a.dueDate}` : ""} — ${ACTION_ITEM_STATUS_LABELS[a.status]}`);
     }
   }
+}
+
+// Shared by /portal/plan/pdf (the client's own download) and
+// sendEmailDraft's attach-plan-pdf path (src/lib/email.ts, used for the
+// Foundation Review completion email) — one place building the actual
+// PDFDocument/buffer around writePlanSections above, so both callers
+// produce byte-identical output. Caller is responsible for checking
+// client.planStatus === "active" first — this doesn't guard that itself.
+export async function generatePlanPdfBuffer(client: ClientRow): Promise<Buffer> {
+  const doc = new PDFDocument({ margin: 50 });
+  const chunks: Buffer[] = [];
+  doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<Buffer>((resolve) => {
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+  });
+
+  await writePlanSections(doc, client);
+  doc.end();
+  return done;
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runReminderSweep, runDeletionSweep } from "@/lib/offboarding";
+import { runBirthdayDiscountSweep } from "@/lib/birthdayDiscount";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,14 @@ export const runtime = "nodejs";
 // two functions directly for manual/demo use — this route exists so a real
 // scheduler can call them too, since nothing in local dev triggers them on
 // a timer. See vercel.json, which points Vercel Cron at this path daily.
+//
+// §9 BIRTHDAY20's daily sweep (src/lib/birthdayDiscount.ts) rides along on
+// this same daily job rather than getting its own Vercel Cron entry —
+// there's no reason a second schedule slot is needed for another once-a-day
+// check, and Vercel's free tier caps how many cron schedules a project can
+// have. Its own "run now" button lives on the Discount Codes settings page
+// instead of down here in Offboarding's, since that's the more relevant
+// place for Coach to trigger it manually.
 //
 // Protected by a shared secret rather than requireCoach()/session auth —
 // Vercel Cron calls this with no user logged in, so the DAL's normal
@@ -31,6 +40,7 @@ export async function GET(request: Request) {
 
   const reminders = await runReminderSweep();
   const deletions = await runDeletionSweep();
+  const birthdayDiscounts = await runBirthdayDiscountSweep();
 
-  return NextResponse.json({ reminders, deletions, ranAt: new Date().toISOString() });
+  return NextResponse.json({ reminders, deletions, birthdayDiscounts, ranAt: new Date().toISOString() });
 }

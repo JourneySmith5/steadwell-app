@@ -1,7 +1,8 @@
 import "server-only";
 import { Resend } from "resend";
 import { createEmailDraft as createEmailDraftRow, markEmailSent } from "@/lib/repo/emails";
-import { findClientById } from "@/lib/repo/clients";
+import { findClientById, setFoundationReviewEmailSentAt } from "@/lib/repo/clients";
+import { generatePlanPdfBuffer } from "@/lib/planPdf";
 
 // §21 Coach-Reviewed Communications: every system-generated email is a draft
 // Coach reviews and edits before it goes out — never auto-sent (except the
@@ -21,14 +22,20 @@ function getResend(): Resend | null {
   return cachedResend;
 }
 
-async function deliver(to: string, subject: string, body: string, logTag: string) {
+async function deliver(
+  to: string,
+  subject: string,
+  body: string,
+  logTag: string,
+  attachments?: { filename: string; content: Buffer }[]
+) {
   const resend = getResend();
   const from = process.env.EMAIL_FROM || "steadwell@boldlybuilt.group";
   if (!resend) {
-    console.log(`[${logTag}] to ${to} — "${subject}"`);
+    console.log(`[${logTag}] to ${to} — "${subject}"${attachments?.length ? ` (with ${attachments.length} attachment(s))` : ""}`);
     return;
   }
-  const { error } = await resend.emails.send({ from, to, subject, text: body });
+  const { error } = await resend.emails.send({ from, to, subject, text: body, attachments });
   if (error) {
     // A failed real send shouldn't be silently swallowed — the caller
     // (a Server Action, or the offboarding sweep) already handles a thrown
@@ -45,6 +52,7 @@ export async function createEmailDraft(params: {
   template: string;
   subject: string;
   body: string;
+  attachPlanPdf?: boolean;
 }) {
   return createEmailDraftRow(params);
 }
@@ -52,7 +60,30 @@ export async function createEmailDraft(params: {
 export async function sendEmailDraft(emailId: string, editedSubject: string, editedBody: string) {
   const email = await markEmailSent(emailId, editedSubject, editedBody);
   const client = await findClientById(email.clientId);
-  if (client) await deliver(client.email, email.subject, email.body, "email:sent");
+  if (client) {
+    // Regenerated fresh from the immutable finalized plan rather than
+    // stored anywhere — see generatePlanPdfBuffer's comment. Only clients
+    // with an active (finalized) plan ever get this flag set in the first
+    // place (see markFoundationReviewCompleteAndEmailPlan), but a plan
+    // could in principle no longer be "active" by send time — skip the
+    // attachment rather than throw if so; the email itself still sends.
+    const attachments =
+      email.attachPlanPdf && client.planStatus === "active"
+        ? [
+            {
+              filename: `steadwell-plan-${client.fullName.replace(/\s+/g, "-").toLowerCase()}.pdf`,
+              content: await generatePlanPdfBuffer(client),
+            },
+          ]
+        : undefined;
+    await deliver(client.email, email.subject, email.body, "email:sent", attachments);
+
+    // Starts THANKYOU15's 24-hour Accountability-signup window — see
+    // src/lib/promotions.ts.
+    if (email.template === "foundation_review_complete") {
+      await setFoundationReviewEmailSentAt(client.id, new Date().toISOString());
+    }
+  }
   return email;
 }
 
@@ -97,6 +128,22 @@ export function planActivatedTemplate(fullName: string, bookingUrl: string | nul
   return {
     subject: "Your Steadwell plan is ready — let's schedule your Foundation Review Meeting",
     body: `Hi ${fullName},\n\nYour Financial Foundation Plan is finished and ready to view in your Steadwell portal.\n\nThe next step is your Foundation Review Meeting, where we'll walk through the plan together and make sure it fits your life. ${nextStep}\n\n— Steadwell`,
+  };
+}
+
+// §9 THANKYOU15 trigger — drafted (not auto-sent, matching the review-gate
+// every other client-facing content decision goes through) by "Mark
+// Complete & Email Plan" on the Coach Meetings page for a Foundation-type
+// meeting; see markFoundationReviewCompleteAndEmailPlan. thankYouPercentOff
+// is null when THANKYOU15 isn't currently enabled — omits the incentive
+// line entirely rather than promising a promotion that isn't live.
+export function foundationReviewCompleteTemplate(fullName: string, thankYouPercentOff: number | null) {
+  const incentive = thankYouPercentOff
+    ? `\n\nOne more thing — if you sign up for an Accountability plan within the next 24 hours, you'll automatically get ${thankYouPercentOff}% off your first 3 months.`
+    : "";
+  return {
+    subject: "Your Foundation Review is complete — here's a copy of your plan",
+    body: `Hi ${fullName},\n\nGreat meeting with you today. Your Financial Foundation Plan is attached as a PDF for your records.${incentive}\n\n— Steadwell`,
   };
 }
 

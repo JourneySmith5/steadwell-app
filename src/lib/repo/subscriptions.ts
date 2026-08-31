@@ -1,4 +1,4 @@
-import { get, run, newId, nowIso } from "@/lib/db/client";
+import { get, all, run, newId, nowIso } from "@/lib/db/client";
 import type { SubscriptionStatus } from "@/lib/enums";
 
 interface SubscriptionDbRow {
@@ -8,6 +8,7 @@ interface SubscriptionDbRow {
   status: string;
   stripe_subscription_id: string | null;
   current_period_end: string | null;
+  birthday_discount_year_applied: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -19,6 +20,7 @@ export interface SubscriptionRow {
   status: SubscriptionStatus;
   stripeSubscriptionId: string | null;
   currentPeriodEnd: string | null;
+  birthdayDiscountYearApplied: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +33,7 @@ function fromRow(row: SubscriptionDbRow): SubscriptionRow {
     status: row.status as SubscriptionStatus,
     stripeSubscriptionId: row.stripe_subscription_id,
     currentPeriodEnd: row.current_period_end,
+    birthdayDiscountYearApplied: row.birthday_discount_year_applied,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -109,4 +112,24 @@ export async function setSubscriptionTier(clientId: string, tier: string) {
     $tier: tier,
     $now: nowIso(),
   });
+}
+
+// The calendar year (client's local concept of "this year") BIRTHDAY20 was
+// last applied to this subscription's real Stripe billing — lets the daily
+// sweep (src/lib/birthdayDiscount.ts) skip a client it already handled this
+// year without re-deriving it from Stripe every run.
+export async function setBirthdayDiscountYearApplied(clientId: string, year: number) {
+  await run(`UPDATE subscriptions SET birthday_discount_year_applied = $year, updated_at = $now WHERE client_id = $clientId`, {
+    $clientId: clientId,
+    $year: year,
+    $now: nowIso(),
+  });
+}
+
+// All currently-active Accountability subscriptions — the daily birthday
+// sweep's candidate pool. Small table, no pagination needed at this scale
+// (mirrors listActiveOffboardings' same assumption).
+export async function listActiveSubscriptions(): Promise<SubscriptionRow[]> {
+  const rows = await all<SubscriptionDbRow>("SELECT * FROM subscriptions WHERE status = 'active'");
+  return rows.map(fromRow);
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { setClientStatus } from "@/lib/status";
 import {
@@ -9,6 +10,43 @@ import {
 } from "@/lib/repo/subscriptions";
 import { findClientById, type ClientRow } from "@/lib/repo/clients";
 import { ACCOUNTABILITY_TIERS } from "@/lib/enums";
+import { getThankYou15Eligibility, getBirthday20Eligibility } from "@/lib/promotions";
+
+// One ad-hoc Stripe Coupon per eligible promo, each with its own correct
+// lifetime (THANKYOU15 repeats for 3 months; BIRTHDAY20 is a single cycle)
+// — Stripe natively supports multiple simultaneous discounts on a
+// subscription (see the `discounts` array below), so §9's "let them stack"
+// is Stripe combining these on the invoice itself rather than this app
+// trying to pre-merge two differently-shaped discounts into one coupon.
+async function buildEnrollmentDiscounts(
+  stripe: Stripe,
+  client: ClientRow
+): Promise<Stripe.Checkout.SessionCreateParams.Discount[]> {
+  const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
+
+  const thankYou = await getThankYou15Eligibility(client);
+  if (thankYou.eligible) {
+    const coupon = await stripe.coupons.create({
+      percent_off: thankYou.percentOff,
+      duration: "repeating",
+      duration_in_months: 3,
+      name: `THANKYOU15 — ${thankYou.percentOff}% off first 3 months`,
+    });
+    discounts.push({ coupon: coupon.id });
+  }
+
+  const birthday = await getBirthday20Eligibility(client);
+  if (birthday.eligible) {
+    const coupon = await stripe.coupons.create({
+      percent_off: birthday.percentOff,
+      duration: "once",
+      name: `BIRTHDAY20 — ${birthday.percentOff}% off this month`,
+    });
+    discounts.push({ coupon: coupon.id });
+  }
+
+  return discounts;
+}
 
 export function findTier(tierId: string) {
   return ACCOUNTABILITY_TIERS.find((t) => t.id === tierId);
@@ -49,10 +87,12 @@ export async function startAccountabilityCheckout(
 
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
   const priceId = await getTierPriceId(tierId);
+  const discounts = await buildEnrollmentDiscounts(stripe, client);
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer_email: client.email,
     line_items: [{ price: priceId, quantity: 1 }],
+    ...(discounts.length > 0 ? { discounts } : {}),
     metadata: { clientId: client.id, tier: tier.id },
     success_url: `${appUrl}/portal/accountability?enrolled=1`,
     cancel_url: `${appUrl}/portal/accountability`,

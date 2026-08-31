@@ -187,6 +187,8 @@ export const AGREEMENT_VERSION = "2026-08-28";
 export const SEED_DISCOUNT_CODES = [
   { code: "FAMILY90", percentOff: 90 },
   { code: "FRIENDS50", percentOff: 50 },
+  { code: "THANKYOU15", percentOff: 15 },
+  { code: "BIRTHDAY20", percentOff: 20 },
 ] as const;
 
 // §5-§8 Plan Builder — plan_status lives directly on the client row (one

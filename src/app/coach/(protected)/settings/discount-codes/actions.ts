@@ -8,6 +8,7 @@ import {
   updateDiscountCode,
   findDiscountCodeByCode,
 } from "@/lib/repo/discountCodes";
+import { runBirthdayDiscountSweep } from "@/lib/birthdayDiscount";
 import { parseText } from "@/lib/formHelpers";
 
 const PATH = "/coach/settings/discount-codes";
@@ -62,5 +63,15 @@ export async function saveDiscountCode(id: string, formData: FormData) {
   if (existing) fail(`${code} is already used by another code.`);
 
   await updateDiscountCode(id, { code, percentOff });
+  redirect(PATH);
+}
+
+// Manual trigger for the same daily sweep /api/cron/offboarding-sweep runs
+// — lets Coach see BIRTHDAY20 actually get applied to an active
+// Accountability subscription without waiting on the real schedule (same
+// "Run Now" pattern as Offboarding's sweep button).
+export async function runBirthdaySweepNow() {
+  await requireCoach();
+  await runBirthdayDiscountSweep();
   redirect(PATH);
 }

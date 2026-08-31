@@ -111,6 +111,13 @@ export async function updateMeeting(
   );
 }
 
+// Targeted status flip — used by "Mark Complete & Email Plan" (Coach
+// Meetings page) so that action doesn't need to resend every other field
+// on the meeting just to change status.
+export async function setMeetingStatus(id: string, status: MeetingStatus) {
+  await run(`UPDATE meetings SET status = $status WHERE id = $id`, { $id: id, $status: status });
+}
+
 export async function deleteMeeting(id: string) {
   await run("DELETE FROM meetings WHERE id = $id", { $id: id });
 }

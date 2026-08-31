@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS clients (
   plan_finalized_at TEXT,
   plan_unbalanced_override_note TEXT,
   date_of_birth TEXT,
+  foundation_review_email_sent_at TEXT,
   created_at TEXT NOT NULL DEFAULT (now()),
   updated_at TEXT NOT NULL DEFAULT (now())
 );
@@ -87,6 +88,7 @@ CREATE TABLE IF NOT EXISTS email_logs (
   body TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'draft',
   sent_at TEXT,
+  attach_plan_pdf INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (now())
 );
 
@@ -168,6 +170,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   status TEXT NOT NULL,
   stripe_subscription_id TEXT,
   current_period_end TEXT,
+  birthday_discount_year_applied INTEGER,
   created_at TEXT NOT NULL DEFAULT (now()),
   updated_at TEXT NOT NULL DEFAULT (now())
 );
@@ -196,9 +199,25 @@ CREATE TABLE IF NOT EXISTS discount_codes (
 -- The defensive UPDATE below covers the unlikely case a deployment already
 -- picked up the old seed before this change landed; it's a no-op otherwise.
 UPDATE discount_codes SET code = 'FAMILY90', percent_off = 90 WHERE code = 'FAMILY100';
+--
+-- THANKYOU15 and BIRTHDAY20 are conditional/automatic codes — nothing ever
+-- types them in. THANKYOU15 auto-applies to a client's first 3
+-- Accountability billing cycles if they enroll within 24 hours of Coach
+-- sending the "Foundation Review complete" email (src/lib/email.ts,
+-- src/app/coach/(protected)/clients/[id]/meetings/actions.ts). BIRTHDAY20
+-- auto-applies during the client's birth month — to the one-time Foundation
+-- fee if their date of birth happens to be on file by then, and to their
+-- Accountability bill via the daily sweep (src/lib/birthdayDiscount.ts)
+-- otherwise. Both look up this table by their exact code (see
+-- src/lib/promotions.ts) purely to read percent_off and to let Coach kill
+-- the whole promotion by disabling the row — Coach never manages these two
+-- like a normal seasonal code (no reason to rename them; the app looks them
+-- up by these exact strings).
 INSERT INTO discount_codes (id, code, percent_off, enabled, created_at) VALUES
   ('seed-discount-family100', 'FAMILY90', 90, 0, now()),
-  ('seed-discount-friends50', 'FRIENDS50', 50, 0, now())
+  ('seed-discount-friends50', 'FRIENDS50', 50, 0, now()),
+  ('seed-discount-thankyou15', 'THANKYOU15', 15, 0, now()),
+  ('seed-discount-birthday20', 'BIRTHDAY20', 20, 0, now())
 ON CONFLICT (code) DO NOTHING;
 
 -- Coach-managed Google Calendar Appointment Schedule links (Coach Settings
@@ -470,3 +489,17 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS plan_unbalanced_override_note TEXT;
 -- for the BIRTHDAY20 discount. Nullable: existing clients won't have one
 -- until they fill it in, and it's not required to use the app otherwise.
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth TEXT;
+-- When Coach sends the "Foundation Review complete" email (with the plan
+-- PDF attached) — starts THANKYOU15's 24-hour Accountability-signup window.
+-- NULL until that email is actually sent (not just drafted); see
+-- src/lib/email.ts's sendEmailDraft.
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS foundation_review_email_sent_at TEXT;
+-- Regenerated fresh at send time from the client's immutable finalized
+-- plan (same "point-in-time snapshot" approach as /portal/plan/pdf) rather
+-- than stored — this just tells sendEmailDraft whether to attach one.
+ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS attach_plan_pdf INTEGER NOT NULL DEFAULT 0;
+-- Calendar year (e.g. 2026) BIRTHDAY20 was last applied to this
+-- subscription's Stripe billing — lets the daily sweep
+-- (src/lib/birthdayDiscount.ts) skip a client it already handled this year
+-- without re-checking Stripe, and naturally resets itself next year.
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS birthday_discount_year_applied INTEGER;

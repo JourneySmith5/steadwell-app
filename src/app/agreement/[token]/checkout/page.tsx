@@ -31,7 +31,7 @@ export default async function CheckoutPage(props: PageProps<"/agreement/[token]/
     );
   }
 
-  const price = await computeFoundationPriceCents(codeParam);
+  const price = await computeFoundationPriceCents(codeParam, client);
   const boundStartCheckout = startCheckout.bind(null, token);
 
   return (
@@ -44,12 +44,12 @@ export default async function CheckoutPage(props: PageProps<"/agreement/[token]/
             <dt className="text-brand-slate">Financial Foundation</dt>
             <dd className="text-brand-slate">$399.00</dd>
           </div>
-          {price.appliedCode && (
-            <div className="flex justify-between text-brand-sage">
-              <dt>{price.appliedCode} ({price.percentOff}% off)</dt>
-              <dd>-{dollars(39900 - price.amountCents)}</dd>
+          {price.appliedCodes.map((a) => (
+            <div key={a.code} className="flex justify-between text-brand-sage">
+              <dt>{a.code} ({a.percentOff}% off)</dt>
+              <dd>-{dollars(Math.round(39900 * (a.percentOff / 100)))}</dd>
             </div>
-          )}
+          ))}
           <div className="flex justify-between font-semibold text-brand-dark border-t border-brand-pale pt-2">
             <dt>Total due today</dt>
             <dd>{dollars(price.amountCents)}</dd>
@@ -65,7 +65,7 @@ export default async function CheckoutPage(props: PageProps<"/agreement/[token]/
         {price.invalidCode && <p className="text-sm text-red-700 mb-4">That code isn&apos;t valid or isn&apos;t currently active.</p>}
 
         <form action={boundStartCheckout}>
-          <input type="hidden" name="code" value={price.appliedCode ?? ""} />
+          <input type="hidden" name="code" value={codeParam ?? ""} />
           <Button type="submit" className="w-full mt-2">
             {STRIPE_CONFIGURED ? "Pay with Stripe" : "Continue (Test Mode)"}
           </Button>

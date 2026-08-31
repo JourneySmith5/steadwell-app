@@ -17,6 +17,7 @@ export interface ClientRow {
   planFinalizedAt: string | null;
   planUnbalancedOverrideNote: string | null;
   dateOfBirth: string | null;
+  foundationReviewEmailSentAt: string | null;
   createdAt: string;
 }
 
@@ -36,6 +37,7 @@ interface ClientDbRow {
   plan_finalized_at: string | null;
   plan_unbalanced_override_note: string | null;
   date_of_birth: string | null;
+  foundation_review_email_sent_at: string | null;
   created_at: string;
 }
 
@@ -56,6 +58,7 @@ function fromRow(row: ClientDbRow): ClientRow {
     planFinalizedAt: row.plan_finalized_at,
     planUnbalancedOverrideNote: row.plan_unbalanced_override_note,
     dateOfBirth: row.date_of_birth,
+    foundationReviewEmailSentAt: row.foundation_review_email_sent_at,
     createdAt: row.created_at,
   };
 }
@@ -149,6 +152,17 @@ export async function setDateOfBirth(clientId: string, dateOfBirth: string | nul
   await run(`UPDATE clients SET date_of_birth = $dateOfBirth, updated_at = $now WHERE id = $id`, {
     $id: clientId,
     $dateOfBirth: dateOfBirth,
+    $now: nowIso(),
+  });
+}
+
+// THANKYOU15's 24-hour clock — set the moment Coach actually sends the
+// "Foundation Review complete" email (src/lib/email.ts's sendEmailDraft),
+// not when the meeting is marked complete or the draft is created.
+export async function setFoundationReviewEmailSentAt(clientId: string, sentAt: string) {
+  await run(`UPDATE clients SET foundation_review_email_sent_at = $sentAt, updated_at = $now WHERE id = $id`, {
+    $id: clientId,
+    $sentAt: sentAt,
     $now: nowIso(),
   });
 }

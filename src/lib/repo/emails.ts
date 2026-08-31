@@ -8,6 +8,7 @@ export interface EmailLogRow {
   body: string;
   status: "draft" | "sent";
   sentAt: string | null;
+  attachPlanPdf: boolean;
   createdAt: string;
 }
 
@@ -19,6 +20,7 @@ interface EmailDbRow {
   body: string;
   status: string;
   sent_at: string | null;
+  attach_plan_pdf: number;
   created_at: string;
 }
 
@@ -31,21 +33,34 @@ function fromRow(row: EmailDbRow): EmailLogRow {
     body: row.body,
     status: row.status as "draft" | "sent",
     sentAt: row.sent_at,
+    attachPlanPdf: !!row.attach_plan_pdf,
     createdAt: row.created_at,
   };
 }
 
-export async function createEmailDraft(params: { clientId: string; template: string; subject: string; body: string }) {
+// attachPlanPdf: true regenerates the client's finalized plan as a PDF at
+// send time and attaches it — see sendEmailDraft (src/lib/email.ts). Not
+// stored as a file: the plan is immutable once finalized (same "point-in-
+// time snapshot, regenerated on request" approach as /portal/plan/pdf), so
+// there's nothing to keep in sync by generating it fresh each send.
+export async function createEmailDraft(params: {
+  clientId: string;
+  template: string;
+  subject: string;
+  body: string;
+  attachPlanPdf?: boolean;
+}) {
   const id = newId();
   await run(
-    `INSERT INTO email_logs (id, client_id, template, subject, body, status, created_at)
-     VALUES ($id, $clientId, $template, $subject, $body, 'draft', $now)`,
+    `INSERT INTO email_logs (id, client_id, template, subject, body, status, attach_plan_pdf, created_at)
+     VALUES ($id, $clientId, $template, $subject, $body, 'draft', $attachPlanPdf, $now)`,
     {
       $id: id,
       $clientId: params.clientId,
       $template: params.template,
       $subject: params.subject,
       $body: params.body,
+      $attachPlanPdf: params.attachPlanPdf ? 1 : 0,
       $now: nowIso(),
     }
   );

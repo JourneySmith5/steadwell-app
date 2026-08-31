@@ -1,7 +1,9 @@
 import { requireCoach } from "@/lib/dal";
 import { listDiscountCodes } from "@/lib/repo/discountCodes";
 import { Card, PageHeader, Field, TextInput, Button, ErrorText } from "@/components/ui";
-import { toggleDiscountCode, saveDiscountCode, addDiscountCode } from "./actions";
+import { toggleDiscountCode, saveDiscountCode, addDiscountCode, runBirthdaySweepNow } from "./actions";
+
+const AUTOMATIC_CODES = new Set(["THANKYOU15", "BIRTHDAY20"]);
 
 export default async function DiscountCodesPage(props: {
   searchParams: Promise<{ error?: string }>;
@@ -22,6 +24,13 @@ export default async function DiscountCodesPage(props: {
         <ul className="divide-y divide-brand-pale">
           {codes.map((c) => (
             <li key={c.id} className="px-6 py-4">
+              {AUTOMATIC_CODES.has(c.code) && (
+                <p className="text-xs text-brand-slate/60 mb-2">
+                  Automatic — clients never type this in. {c.code === "THANKYOU15"
+                    ? "Applies itself to a client's first 3 Accountability billing cycles if they enroll within 24 hours of you sending their Foundation Review completion email."
+                    : "Applies itself during a client's birth month — to the Foundation fee if their date of birth is on file by then, and to their Accountability bill via the daily sweep below."}
+                </p>
+              )}
               <form action={saveDiscountCode.bind(null, c.id)} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                 <Field label="Code">
                   <TextInput name="code" defaultValue={c.code} required maxLength={40} className="uppercase" />
@@ -46,6 +55,23 @@ export default async function DiscountCodesPage(props: {
             </li>
           ))}
         </ul>
+      </Card>
+
+      <Card className="mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-heading text-lg text-brand-dark mb-1">Birthday Discount Sweep</h2>
+            <p className="text-xs text-brand-slate/60">
+              Runs automatically every day. This button runs it on demand — useful for checking BIRTHDAY20
+              actually lands on an active Accountability subscription without waiting on the schedule.
+            </p>
+          </div>
+          <form action={runBirthdaySweepNow}>
+            <Button type="submit" variant="secondary">
+              Run Now
+            </Button>
+          </form>
+        </div>
       </Card>
 
       <Card>
