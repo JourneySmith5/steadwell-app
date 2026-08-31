@@ -75,14 +75,14 @@ export async function sendSystemEmail(params: { clientId: string; template: stri
 export function applicationApprovedTemplate(fullName: string, agreementUrl: string) {
   return {
     subject: "You're approved — next step: agreement & payment",
-    body: `Hi ${fullName},\n\nThanks for applying to Steadwell — I've reviewed your application and I think we're a good fit. The next step is reviewing and accepting the engagement agreement, then completing the one-time Financial Foundation payment ($399) to get started.\n\n${agreementUrl}\n\nLooking forward to working with you.\n\n— Coach`,
+    body: `Hi ${fullName},\n\nThanks for applying to Steadwell — I've reviewed your application and I think we're a good fit. The next step is reviewing and accepting the engagement agreement, then completing the one-time Financial Foundation payment ($399) to get started.\n\n${agreementUrl}\n\nLooking forward to working with you.\n\n— Steadwell`,
   };
 }
 
 export function applicationDeclinedTemplate(fullName: string) {
   return {
     subject: "Following up on your Steadwell application",
-    body: `Hi ${fullName},\n\nThank you for taking the time to apply. After reviewing your application, I don't think I'm the right fit to help right now.\n\nI wish you the best in finding the right support.\n\n— Coach`,
+    body: `Hi ${fullName},\n\nThank you for taking the time to apply. After reviewing your application, I don't think I'm the right fit to help right now.\n\nI wish you the best in finding the right support.\n\n— Steadwell`,
   };
 }
 
@@ -96,14 +96,14 @@ export function planActivatedTemplate(fullName: string, bookingUrl: string | nul
     : `Reach out to schedule your Foundation Review Meeting — we'll go through it together.`;
   return {
     subject: "Your Steadwell plan is ready — let's schedule your Foundation Review Meeting",
-    body: `Hi ${fullName},\n\nYour Financial Foundation Plan is finished and ready to view in your Steadwell portal.\n\nThe next step is your Foundation Review Meeting, where we'll walk through the plan together and make sure it fits your life. ${nextStep}\n\n— Coach`,
+    body: `Hi ${fullName},\n\nYour Financial Foundation Plan is finished and ready to view in your Steadwell portal.\n\nThe next step is your Foundation Review Meeting, where we'll walk through the plan together and make sure it fits your life. ${nextStep}\n\n— Steadwell`,
   };
 }
 
 export function accountInvitationTemplate(fullName: string, inviteUrl: string) {
   return {
     subject: "Set up your Steadwell account",
-    body: `Hi ${fullName},\n\nYour payment was received — welcome to Steadwell. Use the link below to create your account password and secure your account with two-factor authentication.\n\n${inviteUrl}\n\nThis link expires in 7 days.\n\n— Coach`,
+    body: `Hi ${fullName},\n\nYour payment was received — welcome to Steadwell. Use the link below to create your account password and secure your account with two-factor authentication.\n\n${inviteUrl}\n\nThis link expires in 7 days.\n\n— Steadwell`,
   };
 }
 
