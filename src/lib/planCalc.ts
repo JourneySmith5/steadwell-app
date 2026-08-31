@@ -66,6 +66,19 @@ export interface PayoffTrajectory {
   paymentTooLow: boolean;
 }
 
+// The floor a Planned Payment needs to clear before payoff math means
+// anything — the payment that exactly covers this month's interest charge,
+// rounded up a cent so it actually clears it rather than landing exactly on
+// the line. This is NOT a recommendation to pay only this much (that never
+// touches principal, so the balance never actually shrinks) — it's the
+// minimum viable number to show Coach when a planned payment is too low, so
+// they know what to raise it to.
+export function minimumViablePayment(balance: number, aprPercent: number): number {
+  if (balance <= 0) return 0;
+  const monthlyInterest = balance * (aprPercent / 100 / 12);
+  return Math.ceil(monthlyInterest * 100) / 100;
+}
+
 export function computePayoffTrajectory(balance: number, aprPercent: number, monthlyPayment: number): PayoffTrajectory {
   if (balance <= 0) return { monthsToPayoff: 0, totalInterest: 0, paymentTooLow: false };
   if (monthlyPayment <= 0) return { monthsToPayoff: null, totalInterest: null, paymentTooLow: true };

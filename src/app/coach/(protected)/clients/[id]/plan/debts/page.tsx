@@ -3,7 +3,7 @@ import { requireCoach } from "@/lib/dal";
 import { findClientById } from "@/lib/repo/clients";
 import { listDebts } from "@/lib/repo/debts";
 import { findDebtDecisionByDebtId } from "@/lib/repo/debtDecisions";
-import { generateDebtInsights } from "@/lib/planCalc";
+import { generateDebtInsights, minimumViablePayment } from "@/lib/planCalc";
 import { replaceInsights, listInsights } from "@/lib/repo/insights";
 import { DEBT_STRATEGY_OPTIONS } from "@/lib/enums";
 import { Card, Field, TextInput, Select, TextArea, Button } from "@/components/ui";
@@ -84,6 +84,13 @@ export default async function DebtStrategyPage(props: PageProps<"/coach/clients/
                 <TextInput type="number" step="0.01" name="plannedPayment" defaultValue={decision?.plannedPayment ?? d.minimumPayment} required />
               </Field>
               <div />
+              {decision && decision.monthsToPayoff == null && (
+                <p className="text-xs text-brand-accent sm:col-span-2 -mt-2">
+                  This doesn&apos;t cover the {money(minimumViablePayment(d.balance, d.apr))} monthly interest — the
+                  balance will grow instead of shrinking. Set at least {money(minimumViablePayment(d.balance, d.apr))}/mo
+                  to stop it from growing (more than that to actually pay it down).
+                </p>
+              )}
               <div className="sm:col-span-2">
                 <Field label="Rationale" hint="Coach's reasoning for this strategy — on record.">
                   <TextArea name="rationale" rows={2} defaultValue={decision?.rationale ?? ""} />
@@ -95,11 +102,10 @@ export default async function DebtStrategyPage(props: PageProps<"/coach/clients/
                 </Button>
               </div>
             </form>
-            {decision && (
+            {decision && decision.monthsToPayoff != null && (
               <p className="text-xs text-brand-slate/70 mt-3 pt-3 border-t border-brand-pale">
-                {decision.monthsToPayoff != null
-                  ? `Projected payoff: ${decision.monthsToPayoff} month${decision.monthsToPayoff === 1 ? "" : "s"}, total interest ${money(decision.totalInterest ?? 0)}.`
-                  : "This planned payment doesn't cover the monthly interest — this debt will never pay off at this amount."}
+                Projected payoff: {decision.monthsToPayoff} month{decision.monthsToPayoff === 1 ? "" : "s"}, total
+                interest {money(decision.totalInterest ?? 0)}.
               </p>
             )}
           </Card>

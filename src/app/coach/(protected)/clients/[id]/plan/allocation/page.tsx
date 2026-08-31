@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCoach } from "@/lib/dal";
 import { findClientById } from "@/lib/repo/clients";
-import { computeAllocationSummary } from "@/lib/planCalc";
+import { computeAllocationSummary, minimumViablePayment } from "@/lib/planCalc";
 import { listAllocationLines, findEmergencyAllocation } from "@/lib/repo/allocationLines";
 import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
 import { findEmergencyFund } from "@/lib/repo/emergencyFund";
@@ -178,6 +178,12 @@ export default async function AllocationPage(props: PageProps<"/coach/clients/[i
                 {decision?.monthsToPayoff != null && (
                   <span className="block text-xs text-brand-slate/70 mt-0.5">
                     Projected payoff: {decision.monthsToPayoff} month{decision.monthsToPayoff === 1 ? "" : "s"}
+                  </span>
+                )}
+                {decision && decision.monthsToPayoff == null && (
+                  <span className="block text-xs text-brand-accent mt-0.5">
+                    Doesn&apos;t cover the {money(minimumViablePayment(d.balance, d.apr))} monthly interest — set at
+                    least that much to stop the balance from growing.
                   </span>
                 )}
               </div>
