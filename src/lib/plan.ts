@@ -1,5 +1,5 @@
 import "server-only";
-import { findClientById, setPlanStatus, setPlanFinalizedAt } from "@/lib/repo/clients";
+import { findClientById, setPlanStatus, setPlanFinalizedAt, setPlanUnbalancedOverrideNote } from "@/lib/repo/clients";
 import { setClientStatus } from "@/lib/status";
 import { computeAllocationSummary } from "@/lib/planCalc";
 import { nowIso } from "@/lib/db/client";
@@ -25,18 +25,25 @@ export async function markPlanReviewed(clientId: string): Promise<void> {
   await setPlanStatus(clientId, "reviewed");
 }
 
-// §8: the plan can't finalize while the Cash-Flow Allocation Workspace's
-// balance check is nonzero (§6). Returns false (no-op) rather than throwing
-// if that guard fails — the UI hides the button in that state, this is
-// defense in depth.
-export async function finalizePlan(clientId: string): Promise<boolean> {
+// §8: the plan normally can't finalize while the Cash-Flow Allocation
+// Workspace's balance check is nonzero (§6). Rare cases (an outside
+// recommendation — selling an asset, refinancing a loan — covers the rest,
+// not something budgeted into the monthly plan) can override that with an
+// explicit, non-empty overrideNote — the Finalize page only submits one
+// after Coach confirms an "are you sure?" step, so an override always
+// leaves a reason on record. Returns false (no-op) rather than throwing if
+// the guard fails and no override was given — the UI hides the plain
+// Finalize button in that state, this is defense in depth.
+export async function finalizePlan(clientId: string, options?: { overrideNote?: string | null }): Promise<boolean> {
   const client = await findClientById(clientId);
   if (!client) return false;
   if (client.planStatus !== "draft" && client.planStatus !== "reviewed") return false;
   const summary = await computeAllocationSummary(clientId);
-  if (summary.difference !== 0) return false;
+  const overrideNote = options?.overrideNote?.trim() || null;
+  if (summary.difference !== 0 && !overrideNote) return false;
   await setPlanStatus(clientId, "finalized");
   await setPlanFinalizedAt(clientId, nowIso());
+  await setPlanUnbalancedOverrideNote(clientId, summary.difference !== 0 ? overrideNote : null);
   return true;
 }
 

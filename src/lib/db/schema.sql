@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS clients (
   plan_historical_spending_monthly DOUBLE PRECISION,
   plan_general_rationale TEXT,
   plan_finalized_at TEXT,
+  plan_unbalanced_override_note TEXT,
   created_at TEXT NOT NULL DEFAULT (now()),
   updated_at TEXT NOT NULL DEFAULT (now())
 );
@@ -410,3 +411,9 @@ ALTER TABLE statements ADD COLUMN IF NOT EXISTS original_filename TEXT;
 -- Dropped from the upload form; Coach opens each file to see its real
 -- period. Existing rows keep whatever month they already have.
 ALTER TABLE statements ALTER COLUMN month DROP NOT NULL;
+-- Rare-case override: a plan can now finalize without a $0 Cash-Flow
+-- Allocation difference, but only via an explicit "are you sure?"
+-- confirmation on the Finalize page that requires Coach to enter why (e.g.
+-- an outside recommendation like selling an asset or refinancing a loan
+-- covers the rest). NULL means the plan finalized normally, balanced.
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS plan_unbalanced_override_note TEXT;

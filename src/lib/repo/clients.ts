@@ -15,6 +15,7 @@ export interface ClientRow {
   planHistoricalSpendingMonthly: number | null;
   planGeneralRationale: string | null;
   planFinalizedAt: string | null;
+  planUnbalancedOverrideNote: string | null;
   createdAt: string;
 }
 
@@ -32,6 +33,7 @@ interface ClientDbRow {
   plan_historical_spending_monthly: number | null;
   plan_general_rationale: string | null;
   plan_finalized_at: string | null;
+  plan_unbalanced_override_note: string | null;
   created_at: string;
 }
 
@@ -50,6 +52,7 @@ function fromRow(row: ClientDbRow): ClientRow {
     planHistoricalSpendingMonthly: row.plan_historical_spending_monthly,
     planGeneralRationale: row.plan_general_rationale,
     planFinalizedAt: row.plan_finalized_at,
+    planUnbalancedOverrideNote: row.plan_unbalanced_override_note,
     createdAt: row.created_at,
   };
 }
@@ -122,6 +125,17 @@ export async function setPlanFinalizedAt(clientId: string, finalizedAt: string) 
   await run(`UPDATE clients SET plan_finalized_at = $finalizedAt, updated_at = $now WHERE id = $id`, {
     $id: clientId,
     $finalizedAt: finalizedAt,
+    $now: nowIso(),
+  });
+}
+
+// null clears it — used on a normal, balanced finalize (Coach didn't need
+// an override) so a plan re-finalized after being fixed doesn't keep
+// showing a stale override reason from an earlier, unbalanced attempt.
+export async function setPlanUnbalancedOverrideNote(clientId: string, note: string | null) {
+  await run(`UPDATE clients SET plan_unbalanced_override_note = $note, updated_at = $now WHERE id = $id`, {
+    $id: clientId,
+    $note: note,
     $now: nowIso(),
   });
 }

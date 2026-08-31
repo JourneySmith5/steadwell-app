@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { requireCoach } from "@/lib/dal";
 import { findClientById } from "@/lib/repo/clients";
 import { computeAllocationSummary } from "@/lib/planCalc";
 import { listActionItems } from "@/lib/repo/actionItems";
 import { ACTION_ITEM_STATUSES, ACTION_ITEM_STATUS_LABELS, PLAN_STATUS_LABELS } from "@/lib/enums";
-import { Card, Field, TextInput, Select, Button } from "@/components/ui";
+import { Card, Field, TextInput, TextArea, Select, Button } from "@/components/ui";
 import { PlanBuilderHeader, money } from "../shared";
 import { addActionItem, saveActionItem, removeActionItem, markReviewedAction, finalizePlanAction, presentPlanAction } from "./actions";
 
@@ -14,8 +15,12 @@ export default async function FinalizePage(props: PageProps<"/coach/clients/[id]
   const client = await findClientById(clientId);
   if (!client) notFound();
 
+  const searchParams = await props.searchParams;
+  const confirmOverride = searchParams.confirmOverride === "1";
+
   const [summary, actions] = await Promise.all([computeAllocationSummary(clientId), listActionItems(clientId)]);
   const balanced = summary.difference === 0;
+  const canFinalize = client.planStatus === "draft" || client.planStatus === "reviewed";
 
   return (
     <div>
@@ -31,10 +36,45 @@ export default async function FinalizePage(props: PageProps<"/coach/clients/[id]
           {!balanced && (
             <span className="text-brand-slate">
               {" "}
-              — adjust allocations on the Cash-Flow Allocation page before finalizing.
+              — normally adjust allocations on the Cash-Flow Allocation page before finalizing. Rare cases that
+              genuinely can&apos;t reach $0 through budgeting alone (an outside recommendation — selling an asset,
+              refinancing a loan) can be finalized anyway below.
             </span>
           )}
         </p>
+
+        {client.planUnbalancedOverrideNote && (
+          <p className="text-xs text-brand-accent bg-brand-accent/10 rounded-md px-3 py-2 mb-4">
+            Finalized unbalanced — Coach&apos;s reason on record: &ldquo;{client.planUnbalancedOverrideNote}&rdquo;
+          </p>
+        )}
+
+        {!balanced && canFinalize && confirmOverride && (
+          <Card className="mb-4 border-brand-accent">
+            <h3 className="text-sm font-medium text-brand-dark mb-2">Are you sure?</h3>
+            <p className="text-sm text-brand-slate mb-3">
+              This plan doesn&apos;t balance to $0 — the difference is {money(summary.difference)}. Explain why
+              (e.g. the specific outside recommendation covering the gap) before finalizing anyway; this is kept on
+              record.
+            </p>
+            <form action={finalizePlanAction.bind(null, clientId)}>
+              <Field label="Reason" required>
+                <TextArea name="overrideNote" rows={2} required placeholder="e.g. Recommending client sell the second vehicle to close a $412/mo gap — not budgeted into the monthly plan." />
+              </Field>
+              <div className="flex gap-3 mt-3">
+                <Button type="submit" variant="danger">
+                  Yes, Finalize Anyway
+                </Button>
+                <Link href={`/coach/clients/${clientId}/plan/finalize`}>
+                  <Button type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                </Link>
+              </div>
+            </form>
+          </Card>
+        )}
+
         <div className="flex flex-wrap gap-3">
           {client.planStatus === "draft" && (
             <form action={markReviewedAction.bind(null, clientId)}>
@@ -43,12 +83,17 @@ export default async function FinalizePage(props: PageProps<"/coach/clients/[id]
               </Button>
             </form>
           )}
-          {(client.planStatus === "draft" || client.planStatus === "reviewed") && (
+          {canFinalize && balanced && (
             <form action={finalizePlanAction.bind(null, clientId)}>
-              <Button type="submit" disabled={!balanced}>
-                Finalize Plan
-              </Button>
+              <Button type="submit">Finalize Plan</Button>
             </form>
+          )}
+          {canFinalize && !balanced && !confirmOverride && (
+            <Link href={`/coach/clients/${clientId}/plan/finalize?confirmOverride=1`}>
+              <Button type="button" variant="secondary">
+                Finalize Anyway (unbalanced) →
+              </Button>
+            </Link>
           )}
           {client.planStatus === "finalized" && (
             <form action={presentPlanAction.bind(null, clientId)}>

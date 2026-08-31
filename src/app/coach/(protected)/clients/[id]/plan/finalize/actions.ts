@@ -6,7 +6,7 @@ import { findClientById } from "@/lib/repo/clients";
 import { createActionItem, updateActionItem, deleteActionItem } from "@/lib/repo/actionItems";
 import { markPlanReviewed, finalizePlan, presentPlan } from "@/lib/plan";
 import type { ActionItemStatus } from "@/lib/enums";
-import { parseOptionalMoney, parseNotes, parseOptionalText } from "@/lib/formHelpers";
+import { parseOptionalMoney, parseNotes, parseOptionalText, parseOptionalNotes } from "@/lib/formHelpers";
 
 function path(clientId: string) {
   return `/coach/clients/${clientId}/plan/finalize`;
@@ -54,9 +54,10 @@ export async function markReviewedAction(clientId: string) {
   redirect(path(clientId));
 }
 
-export async function finalizePlanAction(clientId: string) {
+export async function finalizePlanAction(clientId: string, formData: FormData) {
   await assertClient(clientId);
-  await finalizePlan(clientId);
+  const overrideNote = parseOptionalNotes(formData, "overrideNote");
+  await finalizePlan(clientId, { overrideNote });
   redirect(path(clientId));
 }
 
