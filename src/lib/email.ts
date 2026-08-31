@@ -86,6 +86,20 @@ export function applicationDeclinedTemplate(fullName: string) {
   };
 }
 
+// §8/§11 — sent the moment presentPlan() moves the plan to "active" (Coach
+// clicked "Present Plan to Client"). Falls into the auto-send bucket (see
+// §21 note above sendSystemEmail) alongside meeting reminders, not the
+// coach-drafted application-decision emails.
+export function planActivatedTemplate(fullName: string, bookingUrl: string | null) {
+  const nextStep = bookingUrl
+    ? `Book your Foundation Review Meeting here:\n\n${bookingUrl}`
+    : `Reach out to schedule your Foundation Review Meeting — we'll go through it together.`;
+  return {
+    subject: "Your Steadwell plan is ready — let's schedule your Foundation Review Meeting",
+    body: `Hi ${fullName},\n\nYour Financial Foundation Plan is finished and ready to view in your Steadwell portal.\n\nThe next step is your Foundation Review Meeting, where we'll walk through the plan together and make sure it fits your life. ${nextStep}\n\n— Coach`,
+  };
+}
+
 export function accountInvitationTemplate(fullName: string, inviteUrl: string) {
   return {
     subject: "Set up your Steadwell account",

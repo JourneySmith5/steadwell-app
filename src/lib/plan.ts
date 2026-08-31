@@ -3,6 +3,7 @@ import { findClientById, setPlanStatus, setPlanFinalizedAt, setPlanUnbalancedOve
 import { setClientStatus } from "@/lib/status";
 import { computeAllocationSummary } from "@/lib/planCalc";
 import { nowIso } from "@/lib/db/client";
+import { sendSystemEmail, planActivatedTemplate } from "@/lib/email";
 
 // Auto-transition on first real touch of the Plan Builder — same pattern as
 // Foundation Intake's getOrCreateFoundationIntake: no separate "start"
@@ -57,5 +58,21 @@ export async function presentPlan(clientId: string): Promise<boolean> {
   if (!client || client.planStatus !== "finalized") return false;
   await setPlanStatus(clientId, "active");
   await setClientStatus(clientId, "plan_active", "Plan finalized and presented");
+
+  // Auto-send notification (§21 "meeting reminders" bucket, not the
+  // coach-drafted category) telling the client their plan is ready and it's
+  // time to schedule the Foundation Review Meeting. Best-effort — a failed
+  // send (e.g. Resend hiccup) shouldn't undo or block the status change
+  // that already happened above. Shows up in Email Activity on the
+  // client's page either way; there's no one-click resend for this one if
+  // delivery fails, same as the other auto-sent templates (offboarding
+  // reminders) — Coach would need to follow up directly.
+  try {
+    const { subject, body } = planActivatedTemplate(client.fullName, process.env.GOOGLE_CALENDAR_BOOKING_URL || null);
+    await sendSystemEmail({ clientId, template: "plan_activated", subject, body });
+  } catch (err) {
+    console.error(`Failed to send plan_activated email for client ${clientId}:`, err);
+  }
+
   return true;
 }
