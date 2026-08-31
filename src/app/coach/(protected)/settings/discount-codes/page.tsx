@@ -1,37 +1,68 @@
 import { requireCoach } from "@/lib/dal";
 import { listDiscountCodes } from "@/lib/repo/discountCodes";
-import { Card, PageHeader, Button } from "@/components/ui";
-import { toggleDiscountCode } from "./actions";
+import { Card, PageHeader, Field, TextInput, Button, ErrorText } from "@/components/ui";
+import { toggleDiscountCode, saveDiscountCode, addDiscountCode } from "./actions";
 
-export default async function DiscountCodesPage() {
+export default async function DiscountCodesPage(props: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   await requireCoach();
-  const codes = await listDiscountCodes();
+  const [codes, { error }] = await Promise.all([listDiscountCodes(), props.searchParams]);
 
   return (
     <div>
-      <PageHeader title="Discount Codes" subtitle="Disabled by default — turn one on only when you're actually offering it." />
-      <Card>
+      <PageHeader
+        title="Discount Codes"
+        subtitle="Add codes at will — seasonal sales, promos, whatever — and toggle them on/off whenever you please. Disabled by default so a new code never goes live before you mean it to."
+      />
+
+      {error && <ErrorText>{error}</ErrorText>}
+
+      <Card className="mb-6 p-0 overflow-hidden">
         <ul className="divide-y divide-brand-pale">
           {codes.map((c) => (
-            <li key={c.id} className="py-3 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-brand-dark">{c.code}</p>
-                <p className="text-sm text-brand-slate">{c.percentOff}% off the Financial Foundation fee</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`text-xs font-semibold uppercase tracking-wide ${c.enabled ? "text-brand-sage" : "text-brand-slate/60"}`}>
-                  {c.enabled ? "Enabled" : "Disabled"}
-                </span>
-                <form action={toggleDiscountCode.bind(null, c.id, !c.enabled)}>
-                  <Button type="submit" variant={c.enabled ? "danger" : "secondary"}>
-                    {c.enabled ? "Disable" : "Enable"}
+            <li key={c.id} className="px-6 py-4">
+              <form action={saveDiscountCode.bind(null, c.id)} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                <Field label="Code">
+                  <TextInput name="code" defaultValue={c.code} required maxLength={40} className="uppercase" />
+                </Field>
+                <Field label="Percent off">
+                  <TextInput name="percentOff" type="number" min={1} max={100} defaultValue={c.percentOff} required />
+                </Field>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-xs font-semibold uppercase tracking-wide ${c.enabled ? "text-brand-sage" : "text-brand-slate/60"}`}>
+                    {c.enabled ? "Enabled" : "Disabled"}
+                  </span>
+                  <Button type="submit" variant="secondary">
+                    Save
                   </Button>
-                </form>
-              </div>
+                </div>
+              </form>
+              <form action={toggleDiscountCode.bind(null, c.id, !c.enabled)} className="mt-2">
+                <Button type="submit" variant={c.enabled ? "danger" : "primary"} className="text-xs px-2 py-1">
+                  {c.enabled ? "Disable" : "Enable"}
+                </Button>
+              </form>
             </li>
           ))}
         </ul>
       </Card>
+
+      <Card>
+        <h2 className="font-heading text-lg text-brand-dark mb-3">Add a New Code</h2>
+        <form action={addDiscountCode} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+          <Field label="Code">
+            <TextInput name="code" required maxLength={40} placeholder="e.g. HOLIDAY25" className="uppercase" />
+          </Field>
+          <Field label="Percent off">
+            <TextInput name="percentOff" type="number" min={1} max={100} required placeholder="25" />
+          </Field>
+          <div>
+            <Button type="submit">Add Code</Button>
+          </div>
+        </form>
+      </Card>
+
       <p className="text-xs text-brand-slate/60 mt-3">
         Disabling a code stops it from being applied to new checkouts — it doesn&apos;t alter any
         payment that already happened.

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS clients (
   plan_general_rationale TEXT,
   plan_finalized_at TEXT,
   plan_unbalanced_override_note TEXT,
+  date_of_birth TEXT,
   created_at TEXT NOT NULL DEFAULT (now()),
   updated_at TEXT NOT NULL DEFAULT (now())
 );
@@ -189,8 +190,14 @@ CREATE TABLE IF NOT EXISTS discount_codes (
 -- here means it always runs on cold start regardless. ON CONFLICT (code)
 -- DO NOTHING means this only ever inserts once — re-running it never
 -- re-enables a code Coach has since turned off.
+--
+-- FAMILY100 was renamed to FAMILY90 before ever shipping to production —
+-- 100% off gave the business no skin in the game from the client's side.
+-- The defensive UPDATE below covers the unlikely case a deployment already
+-- picked up the old seed before this change landed; it's a no-op otherwise.
+UPDATE discount_codes SET code = 'FAMILY90', percent_off = 90 WHERE code = 'FAMILY100';
 INSERT INTO discount_codes (id, code, percent_off, enabled, created_at) VALUES
-  ('seed-discount-family100', 'FAMILY100', 100, 0, now()),
+  ('seed-discount-family100', 'FAMILY90', 90, 0, now()),
   ('seed-discount-friends50', 'FRIENDS50', 50, 0, now())
 ON CONFLICT (code) DO NOTHING;
 
@@ -458,3 +465,8 @@ ALTER TABLE statements ALTER COLUMN month DROP NOT NULL;
 -- an outside recommendation like selling an asset or refinancing a loan
 -- covers the rest). NULL means the plan finalized normally, balanced.
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS plan_unbalanced_override_note TEXT;
+-- Client's date of birth (YYYY-MM-DD), collected on Foundation Intake →
+-- Household — needed to detect "is it currently this client's birth month"
+-- for the BIRTHDAY20 discount. Nullable: existing clients won't have one
+-- until they fill it in, and it's not required to use the app otherwise.
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth TEXT;

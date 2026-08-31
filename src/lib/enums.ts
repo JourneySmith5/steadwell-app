@@ -185,7 +185,7 @@ export const AGREEMENT_VERSION = "2026-08-28";
 // §9 discount codes — seeded by scripts/seed.ts, disabled by default,
 // coach toggles them on/off from /coach/settings/discount-codes.
 export const SEED_DISCOUNT_CODES = [
-  { code: "FAMILY100", percentOff: 100 },
+  { code: "FAMILY90", percentOff: 90 },
   { code: "FRIENDS50", percentOff: 50 },
 ] as const;
 

@@ -16,6 +16,7 @@ export interface ClientRow {
   planGeneralRationale: string | null;
   planFinalizedAt: string | null;
   planUnbalancedOverrideNote: string | null;
+  dateOfBirth: string | null;
   createdAt: string;
 }
 
@@ -34,6 +35,7 @@ interface ClientDbRow {
   plan_general_rationale: string | null;
   plan_finalized_at: string | null;
   plan_unbalanced_override_note: string | null;
+  date_of_birth: string | null;
   created_at: string;
 }
 
@@ -53,6 +55,7 @@ function fromRow(row: ClientDbRow): ClientRow {
     planGeneralRationale: row.plan_general_rationale,
     planFinalizedAt: row.plan_finalized_at,
     planUnbalancedOverrideNote: row.plan_unbalanced_override_note,
+    dateOfBirth: row.date_of_birth,
     createdAt: row.created_at,
   };
 }
@@ -136,6 +139,16 @@ export async function setPlanUnbalancedOverrideNote(clientId: string, note: stri
   await run(`UPDATE clients SET plan_unbalanced_override_note = $note, updated_at = $now WHERE id = $id`, {
     $id: clientId,
     $note: note,
+    $now: nowIso(),
+  });
+}
+
+// Client-editable from Foundation Intake → Household. Expects YYYY-MM-DD
+// (an <input type="date"> value) or null to clear it.
+export async function setDateOfBirth(clientId: string, dateOfBirth: string | null) {
+  await run(`UPDATE clients SET date_of_birth = $dateOfBirth, updated_at = $now WHERE id = $id`, {
+    $id: clientId,
+    $dateOfBirth: dateOfBirth,
     $now: nowIso(),
   });
 }

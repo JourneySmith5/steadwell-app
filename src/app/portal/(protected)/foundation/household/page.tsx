@@ -4,7 +4,7 @@ import { isIntakeLocked } from "@/lib/repo/foundationIntake";
 import { listHouseholdMembers } from "@/lib/repo/householdMembers";
 import { HOUSEHOLD_RELATIONSHIP_OPTIONS } from "@/lib/enums";
 import { SectionHeader, EmptyState, SectionFooterNav } from "../shared";
-import { addHouseholdMember, saveHouseholdMember, removeHouseholdMember } from "./actions";
+import { addHouseholdMember, saveHouseholdMember, removeHouseholdMember, saveDateOfBirth } from "./actions";
 
 export default async function HouseholdPage() {
   const user = await requireClient();
@@ -15,6 +15,20 @@ export default async function HouseholdPage() {
     <div>
       <SectionHeader label="Household" locked={locked} />
       <p className="text-sm text-brand-slate mb-4">Everyone financially included in this plan.</p>
+
+      <Card className="mb-6">
+        <h2 className="font-heading text-lg text-brand-dark mb-3">Your Information</h2>
+        <form action={saveDateOfBirth} className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+          <Field label="Date of birth" hint="Used to apply your birthday-month discount, if you have one.">
+            <TextInput type="date" name="dateOfBirth" defaultValue={user.client.dateOfBirth ?? ""} />
+          </Field>
+          <div className="sm:col-span-2">
+            <Button type="submit" variant="secondary">
+              Save
+            </Button>
+          </div>
+        </form>
+      </Card>
 
       {members.length === 0 && <EmptyState>No household members added yet.</EmptyState>}
 
