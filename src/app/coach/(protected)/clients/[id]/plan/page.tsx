@@ -7,8 +7,9 @@ import { listIncomeSources } from "@/lib/repo/incomeSources";
 import { findEmergencyFund } from "@/lib/repo/emergencyFund";
 import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
 import { listSavings } from "@/lib/repo/savings";
+import { listStatements } from "@/lib/repo/statements";
+import { formatStatementMonth } from "@/lib/statementMonths";
 import { Card, Field, TextInput, TextArea, Button } from "@/components/ui";
-import Link from "next/link";
 import { PlanBuilderHeader, money } from "./shared";
 import { saveBaseline } from "./actions";
 
@@ -31,12 +32,13 @@ export default async function PlanBaselinePage(props: PageProps<"/coach/clients/
   await ensurePlanStarted(clientId);
   const freshClient = (await findClientById(clientId))!;
 
-  const [baseline, ef, sinkingFunds, savings, stability] = await Promise.all([
+  const [baseline, ef, sinkingFunds, savings, stability, statements] = await Promise.all([
     computeBaseline(clientId),
     findEmergencyFund(clientId),
     listSinkingFunds(clientId),
     listSavings(clientId),
     incomeStability(clientId),
+    listStatements(clientId),
   ]);
 
   return (
@@ -47,12 +49,40 @@ export default async function PlanBaselinePage(props: PageProps<"/coach/clients/
         <h2 className="font-heading text-lg text-brand-dark mb-1">Stage 1 — Financial Baseline</h2>
         <p className="text-sm text-brand-slate mb-4">
           Pulled from Foundation Intake, plus Coach&apos;s estimate of typical additional spending. This figure
-          is entered by Coach, not calculated automatically —{" "}
-          <Link href={`/coach/clients/${clientId}#statements`} className="underline hover:no-underline">
-            review the client&apos;s uploaded statements
-          </Link>{" "}
-          yourself and use your judgment; nothing in the statements is read or summarized by AI.
+          is entered by Coach, not calculated automatically — review the statements below yourself and use your
+          judgment; nothing in them is read or summarized by AI.
         </p>
+
+        {statements.length > 0 && (
+          <div className="bg-brand-pale/40 rounded-md px-4 py-3 mb-4">
+            <p className="text-xs font-medium text-brand-dark uppercase tracking-wide mb-2">Uploaded Statements</p>
+            <ul className="divide-y divide-brand-pale/70">
+              {statements.map((s) => (
+                <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="text-brand-dark">
+                    {s.accountNickname}
+                    {formatStatementMonth(s.month) ? ` — ${formatStatementMonth(s.month)}` : ""}
+                    {s.originalFilename && (
+                      <span className="text-brand-slate/60"> ({s.originalFilename})</span>
+                    )}
+                  </span>
+                  <a
+                    href={`/api/statements/${s.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-dark underline hover:no-underline shrink-0 ml-3"
+                  >
+                    Preview
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {statements.length === 0 && (
+          <p className="text-sm text-brand-slate/70 italic mb-4">Client hasn&apos;t uploaded any statements yet.</p>
+        )}
+
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
           <Stat label="Normalized Monthly Income" value={money(baseline.normalizedMonthlyIncome)} />
           <Stat label="Recurring Bills" value={money(baseline.monthlyBills)} />
