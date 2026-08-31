@@ -31,7 +31,8 @@ export default async function DebtStrategyPage(props: PageProps<"/coach/clients/
         <h2 className="font-heading text-lg text-brand-dark mb-2">Stage 4 — Debt Strategy</h2>
         <p className="text-sm text-brand-slate">
           Coach sets Priority, Planned Payment, and Strategy for every debt. The system calculates the resulting
-          payoff trajectory — nothing here pre-fills a plan value.
+          payoff trajectory — nothing here pre-fills a plan value. Planned Payment can also be quick-edited from
+          the Cash-Flow Allocation Workspace — both update the same number.
         </p>
       </Card>
 

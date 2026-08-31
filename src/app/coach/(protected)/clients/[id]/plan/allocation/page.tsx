@@ -6,6 +6,9 @@ import { computeAllocationSummary } from "@/lib/planCalc";
 import { listAllocationLines, findEmergencyAllocation } from "@/lib/repo/allocationLines";
 import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
 import { findEmergencyFund } from "@/lib/repo/emergencyFund";
+import { listDebts } from "@/lib/repo/debts";
+import { findDebtDecisionByDebtId } from "@/lib/repo/debtDecisions";
+import { listGoals } from "@/lib/repo/goals";
 import { Card, Field, TextInput, Button } from "@/components/ui";
 import { PlanBuilderHeader, money } from "../shared";
 import {
@@ -14,6 +17,8 @@ import {
   removeFlexCategory,
   saveEmergencyAllocation,
   saveSinkingFundAllocation,
+  saveDebtPlannedPayment,
+  saveGoalPlannedAmount,
 } from "./actions";
 
 export default async function AllocationPage(props: PageProps<"/coach/clients/[id]/plan/allocation">) {
@@ -22,14 +27,20 @@ export default async function AllocationPage(props: PageProps<"/coach/clients/[i
   const client = await findClientById(clientId);
   if (!client) notFound();
 
-  const [summary, flexLines, efAllocation, ef, sinkingFunds, sinkingAllocations] = await Promise.all([
+  const [summary, flexLines, efAllocation, ef, sinkingFunds, sinkingAllocations, debts, goals, goalAllocations] = await Promise.all([
     computeAllocationSummary(clientId),
     listAllocationLines(clientId, "flex"),
     findEmergencyAllocation(clientId),
     findEmergencyFund(clientId),
     listSinkingFunds(clientId),
     listAllocationLines(clientId, "sinking"),
+    listDebts(clientId),
+    listGoals(clientId),
+    listAllocationLines(clientId, "goal"),
   ]);
+  const debtDecisions = new Map(
+    (await Promise.all(debts.map((d) => findDebtDecisionByDebtId(d.id)))).map((decision, idx) => [debts[idx].id, decision])
+  );
 
   return (
     <div>
@@ -117,7 +128,7 @@ export default async function AllocationPage(props: PageProps<"/coach/clients/[i
         </form>
       </Card>
 
-      <Card>
+      <Card className="mb-6">
         <h2 className="font-heading text-lg text-brand-dark mb-3">Sinking Funds</h2>
         {sinkingFunds.length === 0 && <p className="text-sm text-brand-slate/70 italic">None entered in Foundation Intake.</p>}
         {sinkingFunds.map((f) => {
@@ -144,14 +155,81 @@ export default async function AllocationPage(props: PageProps<"/coach/clients/[i
         })}
       </Card>
 
-      <div className="mt-6 flex gap-6 text-sm">
-        <Link href={`/coach/clients/${clientId}/plan/debts`} className="text-brand-dark hover:underline">
-          Debt Acceleration total: {money(summary.debtAccelerationTotal)} — set in Debt Strategy →
-        </Link>
-        <Link href={`/coach/clients/${clientId}/plan/goals`} className="text-brand-dark hover:underline">
-          Goals total: {money(summary.goalsPlannedTotal)} — set in Savings &amp; Goals →
-        </Link>
-      </div>
+      <Card className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-heading text-lg text-brand-dark">Debt Acceleration</h2>
+          <Link href={`/coach/clients/${clientId}/plan/debts`} className="text-xs text-brand-slate hover:underline">
+            Priority, strategy &amp; payoff insights →
+          </Link>
+        </div>
+        {debts.length === 0 && <p className="text-sm text-brand-slate/70 italic">No debts entered in Foundation Intake.</p>}
+        {debts.map((d) => {
+          const decision = debtDecisions.get(d.id);
+          return (
+            <form
+              key={d.id}
+              action={saveDebtPlannedPayment.bind(null, clientId)}
+              className="flex items-end gap-3 mb-3 pb-3 border-b border-brand-pale last:border-0"
+            >
+              <input type="hidden" name="debtId" value={d.id} />
+              <div className="flex-1 text-sm text-brand-slate">
+                <span className="font-medium text-brand-dark">{d.creditor}</span> — balance {money(d.balance)}, APR{" "}
+                {d.apr}%, minimum {money(d.minimumPayment)}
+                {decision?.monthsToPayoff != null && (
+                  <span className="block text-xs text-brand-slate/70 mt-0.5">
+                    Projected payoff: {decision.monthsToPayoff} month{decision.monthsToPayoff === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+              <Field label="Planned monthly payment">
+                <TextInput
+                  type="number"
+                  step="0.01"
+                  name="plannedPayment"
+                  defaultValue={decision?.plannedPayment ?? d.minimumPayment}
+                  required
+                />
+              </Field>
+              <Button type="submit" variant="secondary">
+                Save
+              </Button>
+            </form>
+          );
+        })}
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-heading text-lg text-brand-dark">Financial Goals</h2>
+          <Link href={`/coach/clients/${clientId}/plan/goals`} className="text-xs text-brand-slate hover:underline">
+            Priority, why &amp; completion insights →
+          </Link>
+        </div>
+        {goals.length === 0 && <p className="text-sm text-brand-slate/70 italic">No goals entered in Foundation Intake.</p>}
+        {goals.map((g) => {
+          const alloc = goalAllocations.find((a) => a.linkedGoalId === g.id);
+          return (
+            <form
+              key={g.id}
+              action={saveGoalPlannedAmount.bind(null, clientId)}
+              className="flex items-end gap-3 mb-3 pb-3 border-b border-brand-pale last:border-0"
+            >
+              <input type="hidden" name="goalId" value={g.id} />
+              <div className="flex-1 text-sm text-brand-slate">
+                <span className="font-medium text-brand-dark">{g.name}</span> — {money(g.currentAmount)} of{" "}
+                {money(g.target)}
+                {g.hasDeadline && g.targetDate && ` · target ${g.targetDate}`}
+              </div>
+              <Field label="Planned monthly amount">
+                <TextInput type="number" step="0.01" name="plannedMonthly" defaultValue={alloc?.plannedAmount ?? 0} required />
+              </Field>
+              <Button type="submit" variant="secondary">
+                Save
+              </Button>
+            </form>
+          );
+        })}
+      </Card>
     </div>
   );
 }

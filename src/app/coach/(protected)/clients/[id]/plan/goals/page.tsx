@@ -27,7 +27,8 @@ export default async function GoalsAllocationPage(props: PageProps<"/coach/clien
       <Card className="mb-6">
         <h2 className="font-heading text-lg text-brand-dark mb-2">Stage 5 — Savings &amp; Goals Allocation</h2>
         <p className="text-sm text-brand-slate">
-          Coach sets a planned monthly amount per goal. The system calculates a projected completion date.
+          Coach sets a planned monthly amount per goal. The system calculates a projected completion date. Planned
+          amount can also be quick-edited from the Cash-Flow Allocation Workspace — both update the same number.
         </p>
       </Card>
 
