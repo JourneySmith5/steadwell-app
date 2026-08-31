@@ -9,6 +9,7 @@ import { listDebts } from "@/lib/repo/debts";
 import { findDebtDecisionByDebtId } from "@/lib/repo/debtDecisions";
 import { listGoals } from "@/lib/repo/goals";
 import { listActionItems } from "@/lib/repo/actionItems";
+import { findApplicationByClientId } from "@/lib/repo/applications";
 import { ACTION_ITEM_STATUS_LABELS } from "@/lib/enums";
 
 const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -20,7 +21,7 @@ const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDi
 // downloaded it.
 export async function writePlanSections(doc: PDFKit.PDFDocument, client: ClientRow) {
   const clientId = client.id;
-  const [baseline, summary, flexLines, ef, efAllocation, sinkingFunds, sinkingAllocations, debts, goals, goalAllocations, actions] =
+  const [baseline, summary, flexLines, ef, efAllocation, sinkingFunds, sinkingAllocations, debts, goals, goalAllocations, actions, application] =
     await Promise.all([
       computeBaseline(clientId),
       computeAllocationSummary(clientId),
@@ -33,7 +34,14 @@ export async function writePlanSections(doc: PDFKit.PDFDocument, client: ClientR
       listGoals(clientId),
       listAllocationLines(clientId, "goal"),
       listActionItems(clientId),
+      findApplicationByClientId(clientId),
     ]);
+  // The client's own words from their application, not
+  // client.planGeneralRationale — that field is Coach's private planning
+  // notes (documented as "never shown to the client verbatim"); this
+  // section used to render it directly under a "Your Priorities" heading,
+  // which is exactly backwards.
+  const statedGoals = (application?.goalsNext12Months ?? []).filter((g) => g.trim());
 
   const h1 = (text: string) => doc.moveDown(1).fontSize(18).fillColor("#1f2d22").text(text).moveDown(0.3);
   const h2 = (text: string) => doc.moveDown(0.8).fontSize(13).fillColor("#1f2d22").text(text).moveDown(0.2);
@@ -49,9 +57,10 @@ export async function writePlanSections(doc: PDFKit.PDFDocument, client: ClientR
   line(`Typical Spending: ${money(baseline.historicalSpendingMonthly)}`);
   line(`Available Cash Flow: ${money(baseline.availableMonthlyCashFlow)}`);
 
-  if (client.planGeneralRationale) {
+  if (statedGoals.length > 0 || application?.success_definition) {
     h1("Your Priorities");
-    doc.fontSize(10).fillColor("#3f4a3f").text(client.planGeneralRationale);
+    for (const g of statedGoals) line(`• ${g}`);
+    if (application?.success_definition) line(`What success looks like to you: ${application.success_definition}`);
   }
 
   h1("Your Monthly Plan");

@@ -11,6 +11,7 @@ import { listDebts } from "@/lib/repo/debts";
 import { findDebtDecisionByDebtId } from "@/lib/repo/debtDecisions";
 import { listGoals } from "@/lib/repo/goals";
 import { listActionItems } from "@/lib/repo/actionItems";
+import { findApplicationByClientId } from "@/lib/repo/applications";
 import { ACTION_ITEM_STATUS_LABELS } from "@/lib/enums";
 
 const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -34,7 +35,7 @@ export default async function PlanPage() {
   }
 
   const clientId = client.id;
-  const [baseline, summary, flexLines, ef, efAllocation, sinkingFunds, sinkingAllocations, debts, goals, goalAllocations, actions] =
+  const [baseline, summary, flexLines, ef, efAllocation, sinkingFunds, sinkingAllocations, debts, goals, goalAllocations, actions, application] =
     await Promise.all([
       computeBaseline(clientId),
       computeAllocationSummary(clientId),
@@ -47,7 +48,14 @@ export default async function PlanPage() {
       listGoals(clientId),
       listAllocationLines(clientId, "goal"),
       listActionItems(clientId),
+      findApplicationByClientId(clientId),
     ]);
+  // What the client themselves said, in their own words, when they applied
+  // — not client.planGeneralRationale, which is Coach's private planning
+  // notes (its own field hint says "never shown to the client verbatim").
+  // "Your Priorities" used to render that private field directly; this is
+  // the actual fix, not just a relabel.
+  const statedGoals = (application?.goalsNext12Months ?? []).filter((g) => g.trim());
   const debtDecisions = new Map(
     (await Promise.all(debts.map((d) => findDebtDecisionByDebtId(d.id)))).map((decision, idx) => [debts[idx].id, decision])
   );
@@ -69,10 +77,22 @@ export default async function PlanPage() {
         </dl>
       </Card>
 
-      {client.planGeneralRationale && (
+      {(statedGoals.length > 0 || application?.success_definition) && (
         <Card className="mb-6">
           <h2 className="font-heading text-lg text-brand-dark mb-3">Your Priorities</h2>
-          <p className="text-sm text-brand-slate whitespace-pre-wrap">{client.planGeneralRationale}</p>
+          {statedGoals.length > 0 && (
+            <ul className="text-sm text-brand-slate list-disc list-inside mb-2">
+              {statedGoals.map((g, i) => (
+                <li key={i}>{g}</li>
+              ))}
+            </ul>
+          )}
+          {application?.success_definition && (
+            <p className="text-sm text-brand-slate whitespace-pre-wrap">
+              <span className="text-brand-slate/60">What success looks like to you: </span>
+              {application.success_definition}
+            </p>
+          )}
         </Card>
       )}
 
