@@ -55,7 +55,18 @@ export default async function StatementsPage({
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <a href={`/api/statements/${s.id}/download`} className="text-sm text-brand-dark underline hover:no-underline">
+                  <a
+                    href={`/api/statements/${s.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-brand-dark underline hover:no-underline"
+                  >
+                    Preview
+                  </a>
+                  <a
+                    href={`/api/statements/${s.id}/download?dl=1`}
+                    className="text-sm text-brand-slate/70 underline hover:no-underline"
+                  >
                     Download
                   </a>
                   <form action={removeStatement}>

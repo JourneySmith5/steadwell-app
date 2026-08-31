@@ -248,9 +248,22 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                       {s.accountNickname}
                       {formatStatementMonth(s.month) ? ` — ${formatStatementMonth(s.month)}` : ""}
                     </span>
-                    <a href={`/api/statements/${s.id}/download`} className="text-brand-dark underline hover:no-underline">
-                      Download
-                    </a>
+                    <span className="flex items-center gap-3">
+                      <a
+                        href={`/api/statements/${s.id}/download`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-dark underline hover:no-underline"
+                      >
+                        Preview
+                      </a>
+                      <a
+                        href={`/api/statements/${s.id}/download?dl=1`}
+                        className="text-brand-slate/70 underline hover:no-underline"
+                      >
+                        Download
+                      </a>
+                    </span>
                   </li>
                 ))}
               </ul>
