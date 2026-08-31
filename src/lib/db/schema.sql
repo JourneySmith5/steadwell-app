@@ -241,7 +241,6 @@ CREATE TABLE IF NOT EXISTS booking_links (
 -- since set, and Coach can still rename the label or delete the row
 -- entirely without it coming back.
 INSERT INTO booking_links (id, key, label, url, created_at, updated_at) VALUES
-  ('seed-booking-foundation-intake', 'foundation_intake', 'Foundation Intake Meeting', NULL, now(), now()),
   ('seed-booking-foundation-plan-review', 'foundation_plan_review', 'Foundation Plan Review', NULL, now(), now()),
   ('seed-booking-accountability', 'accountability', 'Accountability Meeting', NULL, now(), now())
 ON CONFLICT (key) DO NOTHING;
@@ -503,3 +502,15 @@ ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS attach_plan_pdf INTEGER NOT NULL
 -- (src/lib/birthdayDiscount.ts) skip a client it already handled this year
 -- without re-checking Stripe, and naturally resets itself next year.
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS birthday_discount_year_applied INTEGER;
+-- "Foundation Intake Meeting" was seeded as a Booking Link key but no code
+-- ever actually looked it up (only "foundation_plan_review" and
+-- "accountability" are read anywhere — see findBookingLinkUrl's call
+-- sites) — a leftover placeholder cluttering Coach Settings → Booking
+-- Links with nothing behind it. Removed from the seed above and from
+-- SYSTEM_BOOKING_LINK_KEYS (src/lib/repo/bookingLinks.ts); this cleans up
+-- the row on any database that already ran the old seed. Guarded by
+-- url IS NULL so a real URL Coach may have already entered here isn't
+-- silently destroyed — if that's the case, delete it manually from
+-- Settings instead (it's no longer a protected "system" key, so the
+-- Remove button will work).
+DELETE FROM booking_links WHERE id = 'seed-booking-foundation-intake' AND url IS NULL;

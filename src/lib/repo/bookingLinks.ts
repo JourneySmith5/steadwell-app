@@ -1,10 +1,14 @@
 import { get, all, run, newId, nowIso } from "@/lib/db/client";
 
-// The three keys schema.sql seeds and app code actually reads by — kept
-// here (not just in schema.sql) so both the Settings page and any code
-// deciding whether a link is "system" (can't be deleted, only edited) agree
-// on the same list.
-export const SYSTEM_BOOKING_LINK_KEYS = ["foundation_intake", "foundation_plan_review", "accountability"] as const;
+// The keys schema.sql seeds and app code actually reads by — kept here
+// (not just in schema.sql) so both the Settings page and any code deciding
+// whether a link is "system" (can't be deleted, only edited) agree on the
+// same list. "foundation_intake" used to be a third seeded key here, but no
+// code ever actually looked it up (no "book your Foundation Intake Meeting"
+// touchpoint exists in the flow) — removed from both this list and the
+// schema.sql seed; see the schema.sql migration that deletes the row from
+// databases that already have it.
+export const SYSTEM_BOOKING_LINK_KEYS = ["foundation_plan_review", "accountability"] as const;
 
 export interface BookingLinkRow {
   id: string;
