@@ -121,13 +121,18 @@ export function applicationDeclinedTemplate(fullName: string) {
 // clicked "Present Plan to Client"). Falls into the auto-send bucket (see
 // §21 note above sendSystemEmail) alongside meeting reminders, not the
 // coach-drafted application-decision emails.
+//
+// Two explicit calls to action, not one — Journey's ask: tell the client to
+// go review their plan (with a direct link, not just "it's in your
+// portal"), and separately tell them to schedule their Plan Review Meeting.
 export function planActivatedTemplate(fullName: string, bookingUrl: string | null) {
+  const portalUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/portal/plan`;
   const nextStep = bookingUrl
-    ? `Book your Foundation Review Meeting here:\n\n${bookingUrl}`
-    : `Reach out to schedule your Foundation Review Meeting — we'll go through it together.`;
+    ? `Book your Plan Review Meeting here:\n\n${bookingUrl}`
+    : `Reach out to schedule your Plan Review Meeting — we'll go through it together.`;
   return {
-    subject: "Your Steadwell plan is ready — let's schedule your Foundation Review Meeting",
-    body: `Hi ${fullName},\n\nYour Financial Foundation Plan is finished and ready to view in your Steadwell portal.\n\nThe next step is your Foundation Review Meeting, where we'll walk through the plan together and make sure it fits your life. ${nextStep}\n\n— Steadwell`,
+    subject: "Your Steadwell plan is ready — review it and schedule your Plan Review Meeting",
+    body: `Hi ${fullName},\n\nYour Financial Foundation Plan is finished. Take a few minutes to review it here:\n\n${portalUrl}\n\nOnce you've had a look, the next step is your Plan Review Meeting, where we'll walk through it together and make sure it fits your life. ${nextStep}\n\n— Steadwell`,
   };
 }
 
