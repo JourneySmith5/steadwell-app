@@ -1,15 +1,29 @@
 import { requireCoach } from "@/lib/dal";
 import { listDiscountCodes } from "@/lib/repo/discountCodes";
 import { Card, PageHeader, Field, TextInput, Button, ErrorText } from "@/components/ui";
-import { toggleDiscountCode, saveDiscountCode, addDiscountCode, runBirthdaySweepNow } from "./actions";
+import { toggleDiscountCode, saveDiscountCode, addDiscountCode, runBirthdaySweepNow, generateOneTimeCode } from "./actions";
 
 const AUTOMATIC_CODES = new Set(["THANKYOU15", "BIRTHDAY20"]);
+
+// Codes that spawn one-time children instead of being toggled on/off
+// directly — Journey's ask: hand each family member/friend/charity guest
+// their own single-use code instead of flipping a shared code on and
+// hoping nobody else grabs it in that window. Any code can still be
+// toggled the old way (nothing about that broke) — this just adds the
+// better option for these three.
+const ONE_TIME_TEMPLATE_CODES = new Set(["FAMILY90", "FRIENDS50", "CHARITY100"]);
 
 export default async function DiscountCodesPage(props: {
   searchParams: Promise<{ error?: string }>;
 }) {
   await requireCoach();
-  const [codes, { error }] = await Promise.all([listDiscountCodes(), props.searchParams]);
+  const [allCodes, { error }] = await Promise.all([listDiscountCodes(), props.searchParams]);
+
+  // One-time children (max_redemptions set) get their own section below,
+  // grouped under the template they were generated from, so the main list
+  // stays exactly as short as it's always been.
+  const codes = allCodes.filter((c) => c.maxRedemptions === null);
+  const oneTimeCodes = allCodes.filter((c) => c.maxRedemptions !== null);
 
   return (
     <div>
@@ -47,15 +61,49 @@ export default async function DiscountCodesPage(props: {
                   </Button>
                 </div>
               </form>
-              <form action={toggleDiscountCode.bind(null, c.id, !c.enabled)} className="mt-2">
-                <Button type="submit" variant={c.enabled ? "danger" : "primary"} className="text-xs px-2 py-1">
-                  {c.enabled ? "Disable" : "Enable"}
-                </Button>
-              </form>
+              <div className="flex items-center gap-2 mt-2">
+                <form action={toggleDiscountCode.bind(null, c.id, !c.enabled)}>
+                  <Button type="submit" variant={c.enabled ? "danger" : "primary"} className="text-xs px-2 py-1">
+                    {c.enabled ? "Disable" : "Enable"}
+                  </Button>
+                </form>
+                {ONE_TIME_TEMPLATE_CODES.has(c.code) && (
+                  <form action={generateOneTimeCode.bind(null, c.code, c.percentOff)}>
+                    <Button type="submit" variant="secondary" className="text-xs px-2 py-1">
+                      Generate One-Time Code
+                    </Button>
+                  </form>
+                )}
+              </div>
             </li>
           ))}
         </ul>
       </Card>
+
+      {oneTimeCodes.length > 0 && (
+        <Card className="mb-6">
+          <h2 className="font-heading text-lg text-brand-dark mb-1">One-Time Codes</h2>
+          <p className="text-xs text-brand-slate/60 mb-3">
+            Each one works for exactly one client, then stops working on its own — nothing to
+            remember to toggle off. Give the code to that one person only.
+          </p>
+          <ul className="divide-y divide-brand-pale">
+            {oneTimeCodes.map((c) => {
+              const used = c.redemptionCount >= (c.maxRedemptions ?? 1);
+              return (
+                <li key={c.id} className="py-2 flex items-center justify-between text-sm">
+                  <span className="font-mono text-brand-dark">
+                    {c.code} <span className="text-brand-slate/70 font-sans">— {c.percentOff}% off</span>
+                  </span>
+                  <span className={`text-xs font-semibold uppercase tracking-wide ${used ? "text-brand-slate/50" : "text-brand-sage"}`}>
+                    {used ? "Used" : "Available"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
 
       <Card className="mb-6">
         <div className="flex items-center justify-between">

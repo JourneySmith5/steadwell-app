@@ -7,6 +7,7 @@ import {
   createDiscountCode,
   updateDiscountCode,
   findDiscountCodeByCode,
+  generateOneTimeCode as generateOneTimeCodeRow,
 } from "@/lib/repo/discountCodes";
 import { runBirthdayDiscountSweep } from "@/lib/birthdayDiscount";
 import { parseText } from "@/lib/formHelpers";
@@ -63,6 +64,17 @@ export async function saveDiscountCode(id: string, formData: FormData) {
   if (existing) fail(`${code} is already used by another code.`);
 
   await updateDiscountCode(id, { code, percentOff });
+  redirect(PATH);
+}
+
+// Spawns a fresh single-use code from a template (FAMILY90, FRIENDS50,
+// CHARITY100 — see ONE_TIME_TEMPLATE_CODES on the page) — the replacement
+// for toggling the shared code on/off around one specific person's use.
+// No form fields: baseCode/percentOff come from the template row itself,
+// bound in on the page, so there's nothing for Coach to mistype.
+export async function generateOneTimeCode(baseCode: string, percentOff: number) {
+  await requireCoach();
+  await generateOneTimeCodeRow(baseCode, percentOff);
   redirect(PATH);
 }
 

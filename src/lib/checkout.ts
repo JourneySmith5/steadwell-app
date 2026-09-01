@@ -1,6 +1,6 @@
 import "server-only";
 import { getStripe } from "@/lib/stripe";
-import { findActiveDiscountCode } from "@/lib/repo/discountCodes";
+import { findActiveDiscountCode, incrementRedemptionCount } from "@/lib/repo/discountCodes";
 import { getBirthday20Eligibility } from "@/lib/promotions";
 import {
   createPendingPayment,
@@ -148,6 +148,16 @@ export async function fulfillFoundationPayment(paymentId: string, stripePaymentI
   // as before, now race-safe. See the comment on claimPaymentForFulfillment.
   const claimed = await claimPaymentForFulfillment(paymentId, stripePaymentIntentId);
   if (!claimed) return;
+
+  // Spend one-time codes only now that the payment is genuinely real —
+  // discountCode is "+"-joined (see startFoundationCheckout); a no-op for
+  // any code without a redemption cap (THANKYOU15, BIRTHDAY20, ordinary
+  // reusable codes), so it's safe to call for every code on this payment.
+  if (claimed.discountCode) {
+    for (const code of claimed.discountCode.split("+")) {
+      await incrementRedemptionCount(code);
+    }
+  }
 
   const client = await findClientById(claimed.clientId);
   if (!client) throw new Error(`Client ${claimed.clientId} not found`);

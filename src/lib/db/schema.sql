@@ -180,6 +180,8 @@ CREATE TABLE IF NOT EXISTS discount_codes (
   code TEXT NOT NULL UNIQUE,
   percent_off INTEGER NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 0,
+  max_redemptions INTEGER,
+  redemption_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (now())
 );
 
@@ -531,3 +533,14 @@ ALTER TABLE meetings ADD COLUMN IF NOT EXISTS client_progress_notes TEXT;
 -- the 48h reminder went out should still get its 24h reminder.
 ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_48h_sent_at TEXT;
 ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_24h_sent_at TEXT;
+-- One-time discount codes (Journey's ask, replacing the "toggle FAMILY90 on,
+-- hope nobody else grabs it, remember to toggle it back off" workflow for
+-- FAMILY90/FRIENDS50/CHARITY100). NULL max_redemptions (every code that
+-- existed before this) means unlimited, same as today — THANKYOU15 and
+-- BIRTHDAY20 in particular need to keep applying across many different
+-- clients. A one-time code spawned from Coach Settings gets max_redemptions
+-- = 1 and is left enabled permanently, since it can only ever be redeemed
+-- once anyway; see generateOneTimeCode/incrementRedemptionCount in
+-- src/lib/repo/discountCodes.ts.
+ALTER TABLE discount_codes ADD COLUMN IF NOT EXISTS max_redemptions INTEGER;
+ALTER TABLE discount_codes ADD COLUMN IF NOT EXISTS redemption_count INTEGER NOT NULL DEFAULT 0;
