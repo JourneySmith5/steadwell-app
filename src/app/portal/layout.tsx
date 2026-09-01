@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/dal";
 import { logout } from "@/app/actions/logout";
+import { PushNotifications } from "@/components/PushNotifications";
+import { BrandMark } from "@/components/BrandMark";
 
 // Nav order matches §10 exactly — keep it small.
 const NAV = [
@@ -28,9 +30,13 @@ export default async function PortalLayout({ children }: LayoutProps<"/portal">)
 
   return (
     <div className="flex-1 flex flex-col">
+      <PushNotifications vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? null} />
       <header className="border-b border-brand-pale bg-white">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
-          <span className="font-heading text-xl text-brand-dark">Steadwell</span>
+          <span className="flex items-center gap-2 font-heading text-xl text-brand-dark">
+            <BrandMark className="h-7 w-7 shrink-0" />
+            Steadwell
+          </span>
           <form action={logout}>
             <button type="submit" className="text-sm text-brand-slate hover:text-brand-dark">
               Sign out

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/repo/clients";
 import { createApplication } from "@/lib/repo/applications";
 import { setClientStatus } from "@/lib/status";
+import { sendPushToCoach } from "@/lib/webPush";
 
 const schema = z.object({
   fullName: z.string().min(2, "Enter your full name."),
@@ -89,6 +90,13 @@ export async function submitApplication(_state: ApplyFormState, formData: FormDa
   });
 
   await setClientStatus(client.id, "in_review", "Application submitted");
+
+  // "Coach: new application" push scope.
+  await sendPushToCoach({
+    title: "New application",
+    body: `${data.fullName} just applied.`,
+    url: `/coach/clients/${client.id}`,
+  });
 
   redirect("/apply/thank-you");
 }

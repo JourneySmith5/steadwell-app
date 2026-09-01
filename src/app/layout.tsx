@@ -13,11 +13,27 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Steadwell",
   description: "Financial coaching, built around your first real clients.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    // Enables "Add to Home Screen" as a real installed app rather than a
+    // bookmark shortcut — required for iOS Web Push to work at all (see
+    // src/components/PushNotifications.tsx).
+    capable: true,
+    statusBarStyle: "default",
+    title: "Steadwell",
+  },
+};
+
+export const viewport = {
+  themeColor: "#1F3D34",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      </head>
       <body className="min-h-full flex flex-col bg-brand-cream">{children}</body>
     </html>
   );

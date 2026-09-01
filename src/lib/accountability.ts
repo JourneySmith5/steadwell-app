@@ -11,6 +11,7 @@ import {
 import { findClientById, type ClientRow } from "@/lib/repo/clients";
 import { ACCOUNTABILITY_TIERS } from "@/lib/enums";
 import { getThankYou15Eligibility, getBirthday20Eligibility } from "@/lib/promotions";
+import { sendPushToCoach } from "@/lib/webPush";
 
 // One ad-hoc Stripe Coupon per eligible promo, each with its own correct
 // lifetime (THANKYOU15 repeats for 3 months; BIRTHDAY20 is a single cycle)
@@ -113,10 +114,20 @@ export async function fulfillAccountabilityEnrollment(clientId: string, tierId: 
   const client = await findClientById(clientId);
   if (!client) throw new Error(`Client ${clientId} not found`);
 
+  const alreadyActive = client.status === "accountability_active";
   await upsertSubscription({ clientId, tier: tierId, status: "active", stripeSubscriptionId, currentPeriodEnd: null });
 
-  if (client.status !== "accountability_active") {
+  if (!alreadyActive) {
     await setClientStatus(clientId, "accountability_active", `Client enrolled in ${findTier(tierId)?.label ?? tierId}`);
+    // "Coach: payment received" push scope — only on the real transition,
+    // same guard as the status change itself, so a second webhook/fallback
+    // call for the same enrollment (see the comment above this function)
+    // doesn't double-notify.
+    await sendPushToCoach({
+      title: "Payment received",
+      body: `${client.fullName} enrolled in ${findTier(tierId)?.label ?? tierId}.`,
+      url: `/coach/clients/${clientId}`,
+    });
   }
 }
 

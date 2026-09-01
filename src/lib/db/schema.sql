@@ -460,9 +460,27 @@ CREATE TABLE IF NOT EXISTS offboardings (
   deleted_at TEXT
 );
 
+-- Web Push subscriptions — one row per browser/device a user has enabled
+-- notifications on (someone can have several: phone + laptop). user_id
+-- references users(id) directly rather than clients(id) so the same table
+-- covers both Coach and clients (Coach gets pushed application/payment
+-- events; clients get meeting reminders and plan-ready pushes — see
+-- src/lib/webPush.ts). endpoint is the browser-assigned subscription URL,
+-- globally unique by construction — UNIQUE here is what makes "subscribe
+-- again with the same browser" an upsert instead of a duplicate row.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
 CREATE INDEX IF NOT EXISTS idx_status_events_client ON status_events(client_id);
 CREATE INDEX IF NOT EXISTS idx_email_logs_client ON email_logs(client_id);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
 
 -- ---------------------------------------------------------------------------
 -- Additive migrations

@@ -12,6 +12,7 @@ import { createEmailDraft, accountInvitationTemplate } from "@/lib/email";
 import { setClientStatus } from "@/lib/status";
 import { findClientById, type ClientRow } from "@/lib/repo/clients";
 import { FOUNDATION_FEE_CENTS } from "@/lib/enums";
+import { sendPushToCoach } from "@/lib/webPush";
 
 // One code typed in by hand (§9 stacking: "all applicable codes stack" —
 // additively, capped at 100% off) plus BIRTHDAY20 applied automatically
@@ -163,6 +164,13 @@ export async function fulfillFoundationPayment(paymentId: string, stripePaymentI
   if (!client) throw new Error(`Client ${claimed.clientId} not found`);
 
   await setClientStatus(client.id, "payment_received", "Payment received");
+
+  // "Coach: payment received" push scope.
+  await sendPushToCoach({
+    title: "Payment received",
+    body: `${client.fullName} paid the Foundation fee.`,
+    url: `/coach/clients/${client.id}`,
+  });
 
   // §21: this draft still needs a human to review and send — payment being
   // real now doesn't change that. It shows up on the client's coach-side

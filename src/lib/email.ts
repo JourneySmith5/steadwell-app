@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { createEmailDraft as createEmailDraftRow, markEmailSent } from "@/lib/repo/emails";
 import { findClientById, setFoundationReviewEmailSentAt } from "@/lib/repo/clients";
 import { generatePlanPdfBuffer } from "@/lib/planPdf";
+import { sendPushToUser } from "@/lib/webPush";
 
 // §21 Coach-Reviewed Communications: every system-generated email is a draft
 // Coach reviews and edits before it goes out — never auto-sent (except the
@@ -83,6 +84,18 @@ export async function sendEmailDraft(emailId: string, editedSubject: string, edi
     if (email.template === "foundation_review_complete") {
       await setFoundationReviewEmailSentAt(client.id, new Date().toISOString());
     }
+
+    // "Client: plan ready / other portal events" push scope — every
+    // client-facing email that actually goes out (this function and
+    // sendSystemEmail below) also fires a push, so this one hook covers
+    // account_invitation, foundation_review_complete, application decisions,
+    // plan_activated, meeting reminders, and offboarding notices without
+    // each call site needing its own push call. client.userId is only set
+    // once the client has created their portal login (linkClientToUser) —
+    // before that there's nothing to push to, so this is a no-op.
+    if (client.userId) {
+      await sendPushToUser(client.userId, { title: "Steadwell", body: email.subject, url: "/portal" });
+    }
   }
   return email;
 }
@@ -99,7 +112,15 @@ export async function sendSystemEmail(params: { clientId: string; template: stri
   const draft = await createEmailDraft(params);
   const email = await markEmailSent(draft.id, params.subject, params.body);
   const client = await findClientById(email.clientId);
-  if (client) await deliver(client.email, email.subject, email.body, "email:sent:system");
+  if (client) {
+    await deliver(client.email, email.subject, email.body, "email:sent:system");
+    // See the matching comment in sendEmailDraft above — same push hook,
+    // covers plan_activated, accountability_meeting_reminder, and the
+    // offboarding reminder/final-notice templates that send through here.
+    if (client.userId) {
+      await sendPushToUser(client.userId, { title: "Steadwell", body: email.subject, url: "/portal" });
+    }
+  }
   return email;
 }
 
