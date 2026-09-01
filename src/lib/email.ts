@@ -139,16 +139,20 @@ export function planActivatedTemplate(fullName: string, bookingUrl: string | nul
 // §9 THANKYOU15 trigger — drafted (not auto-sent, matching the review-gate
 // every other client-facing content decision goes through) by "Mark
 // Complete & Email Plan" on the Coach Meetings page for a Foundation-type
-// meeting; see markFoundationReviewCompleteAndEmailPlan. thankYouPercentOff
-// is null when THANKYOU15 isn't currently enabled — omits the incentive
-// line entirely rather than promising a promotion that isn't live.
+// meeting; see markFoundationReviewCompleteAndEmailPlan. The Accountability
+// pitch/link always shows (Journey's ask — this is the natural moment to
+// mention ongoing support, discount or not); thankYouPercentOff is null
+// when THANKYOU15 isn't currently enabled (Coach Settings → Discount
+// Codes), which only drops the discount sentence, not the whole pitch —
+// never promises a promotion that isn't live.
 export function foundationReviewCompleteTemplate(fullName: string, thankYouPercentOff: number | null) {
-  const incentive = thankYouPercentOff
-    ? `\n\nOne more thing — if you sign up for an Accountability plan within the next 24 hours, you'll automatically get ${thankYouPercentOff}% off your first 3 months.`
+  const accountabilityUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/portal/accountability`;
+  const incentiveSentence = thankYouPercentOff
+    ? ` Sign up within the next 24 hours and you'll automatically get ${thankYouPercentOff}% off your first 3 months.`
     : "";
   return {
     subject: "Your Foundation Review is complete — here's a copy of your plan",
-    body: `Hi ${fullName},\n\nGreat meeting with you today. Your Financial Foundation Plan is attached as a PDF for your records.${incentive}\n\n— Steadwell`,
+    body: `Hi ${fullName},\n\nGreat meeting with you today. Your Financial Foundation Plan is attached as a PDF for your records.\n\nIf you'd like ongoing support putting it into practice, you can enroll in Accountability any time from your portal.${incentiveSentence}\n\n${accountabilityUrl}\n\n— Steadwell`,
   };
 }
 
