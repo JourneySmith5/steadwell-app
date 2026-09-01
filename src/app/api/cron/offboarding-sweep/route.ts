@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runReminderSweep, runDeletionSweep } from "@/lib/offboarding";
 import { runBirthdayDiscountSweep } from "@/lib/birthdayDiscount";
+import { runMeetingReminderSweep } from "@/lib/meetingReminders";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,11 @@ export const runtime = "nodejs";
 // have. Its own "run now" button lives on the Discount Codes settings page
 // instead of down here in Offboarding's, since that's the more relevant
 // place for Coach to trigger it manually.
+//
+// The Accountability meeting-notes reminder sweep (src/lib/meetingReminders.ts)
+// rides along here too, for the same reason — its manual "run now" trigger
+// is folded into the Coach Dashboard's existing "Run Sweep Now" button
+// rather than getting its own (see src/app/coach/(protected)/actions.ts).
 //
 // Protected by a shared secret rather than requireCoach()/session auth —
 // Vercel Cron calls this with no user logged in, so the DAL's normal
@@ -41,6 +47,7 @@ export async function GET(request: Request) {
   const reminders = await runReminderSweep();
   const deletions = await runDeletionSweep();
   const birthdayDiscounts = await runBirthdayDiscountSweep();
+  const meetingReminders = await runMeetingReminderSweep();
 
-  return NextResponse.json({ reminders, deletions, birthdayDiscounts, ranAt: new Date().toISOString() });
+  return NextResponse.json({ reminders, deletions, birthdayDiscounts, meetingReminders, ranAt: new Date().toISOString() });
 }

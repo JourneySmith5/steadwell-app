@@ -111,6 +111,12 @@ export default async function MeetingsPage(props: PageProps<"/coach/clients/[id]
                 </Button>
               </div>
             </form>
+            {m.type === "Accountability" && m.clientProgressNotes && (
+              <div className="mt-3 rounded-md bg-brand-sage/10 border border-brand-sage/30 px-3 py-2">
+                <p className="text-xs font-medium text-brand-dark mb-1">Client&apos;s progress notes</p>
+                <p className="text-xs text-brand-slate whitespace-pre-wrap">{m.clientProgressNotes}</p>
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-2">
               <form action={removeMeeting.bind(null, clientId)}>
                 <input type="hidden" name="id" value={m.id} />

@@ -163,6 +163,18 @@ export function offboardingReminderTemplate(fullName: string, daysRemaining: num
   };
 }
 
+// Accountability meeting reminder — sent 48h and 24h before a scheduled
+// Accountability meeting (see src/lib/meetingReminders.ts), prompting the
+// client to jot progress notes in their portal so Coach can reference them
+// on the call. Falls into the same auto-send bucket as the offboarding
+// reminders above (§21 "meeting reminders" — no draft/review step).
+export function accountabilityProgressNotesReminderTemplate(fullName: string, whenLabel: string, portalUrl: string) {
+  return {
+    subject: `Your Accountability meeting is ${whenLabel} — add your progress notes`,
+    body: `Hi ${fullName},\n\nYour Accountability meeting is ${whenLabel}. Take a minute to jot down what you've done since your last check-in — wins, what's been hard, anything you want to make sure we cover — so we can make the best use of our time together.\n\n${portalUrl}\n\n— Steadwell`,
+  };
+}
+
 // §16 final notice — "a heavier-weight variant roughly one week before
 // deletion, making clear the deletion is permanent and irreversible."
 export function offboardingFinalNoticeTemplate(fullName: string, daysRemaining: number, deletionDate: string, exportUrl: string) {

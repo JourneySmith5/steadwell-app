@@ -438,7 +438,10 @@ CREATE TABLE IF NOT EXISTS meetings (
   status TEXT NOT NULL DEFAULT 'scheduled',
   coach_notes TEXT,
   client_action_items TEXT,
-  next_meeting_date TEXT
+  next_meeting_date TEXT,
+  client_progress_notes TEXT,
+  reminder_48h_sent_at TEXT,
+  reminder_24h_sent_at TEXT
 );
 
 -- ---------------------------------------------------------------------------
@@ -514,3 +517,17 @@ ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS birthday_discount_year_applie
 -- Settings instead (it's no longer a protected "system" key, so the
 -- Remove button will work).
 DELETE FROM booking_links WHERE id = 'seed-booking-foundation-intake' AND url IS NULL;
+-- Client-facing "what have I done since last time" notes — Journey's
+-- request: a place for the client to jot progress ahead of an Accountability
+-- meeting so both sides get more out of the call. Distinct from
+-- client_action_items (Coach writes those, client reads them) and
+-- coach_notes (Coach-private) — this one only the client writes and Coach
+-- reads. Nullable/free text, no size limit beyond the column's own.
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS client_progress_notes TEXT;
+-- Tracks whether the 48h/24h "add your progress notes" reminder email has
+-- gone out for this meeting, so the daily sweep (src/lib/meetingReminders.ts)
+-- doesn't resend one it already sent. Two separate columns (not a count)
+-- because the two reminders are independent — a meeting rescheduled after
+-- the 48h reminder went out should still get its 24h reminder.
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_48h_sent_at TEXT;
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_24h_sent_at TEXT;

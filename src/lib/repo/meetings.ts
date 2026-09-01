@@ -10,6 +10,9 @@ interface MeetingDbRow {
   coach_notes: string | null;
   client_action_items: string | null;
   next_meeting_date: string | null;
+  client_progress_notes: string | null;
+  reminder_48h_sent_at: string | null;
+  reminder_24h_sent_at: string | null;
 }
 
 export interface MeetingRow {
@@ -21,6 +24,9 @@ export interface MeetingRow {
   coachNotes: string | null;
   clientActionItems: string | null;
   nextMeetingDate: string | null;
+  clientProgressNotes: string | null;
+  reminder48hSentAt: string | null;
+  reminder24hSentAt: string | null;
 }
 
 function fromRow(row: MeetingDbRow): MeetingRow {
@@ -33,6 +39,9 @@ function fromRow(row: MeetingDbRow): MeetingRow {
     coachNotes: row.coach_notes,
     clientActionItems: row.client_action_items,
     nextMeetingDate: row.next_meeting_date,
+    clientProgressNotes: row.client_progress_notes,
+    reminder48hSentAt: row.reminder_48h_sent_at,
+    reminder24hSentAt: row.reminder_24h_sent_at,
   };
 }
 
@@ -116,6 +125,33 @@ export async function updateMeeting(
 // on the meeting just to change status.
 export async function setMeetingStatus(id: string, status: MeetingStatus) {
   await run(`UPDATE meetings SET status = $status WHERE id = $id`, { $id: id, $status: status });
+}
+
+// Client-facing "what I've done since last time" notes — set from the
+// client's own Accountability page (see /portal/accountability/actions.ts),
+// never from the coach side. Targeted update so it can't clobber anything
+// Coach has entered on the same row.
+export async function setClientProgressNotes(id: string, notes: string | null) {
+  await run(`UPDATE meetings SET client_progress_notes = $notes WHERE id = $id`, { $id: id, $notes: notes });
+}
+
+export async function setReminder48hSentAt(id: string, sentAt: string) {
+  await run(`UPDATE meetings SET reminder_48h_sent_at = $sentAt WHERE id = $id`, { $id: id, $sentAt: sentAt });
+}
+
+export async function setReminder24hSentAt(id: string, sentAt: string) {
+  await run(`UPDATE meetings SET reminder_24h_sent_at = $sentAt WHERE id = $id`, { $id: id, $sentAt: sentAt });
+}
+
+// The candidate pool for the daily reminder sweep (src/lib/meetingReminders.ts)
+// — scheduled Accountability meetings with a date on file. Deliberately
+// narrow (not "all meetings") since Journey's ask was specifically about
+// Accountability check-ins, not Foundation meetings.
+export async function listScheduledAccountabilityMeetings(): Promise<MeetingRow[]> {
+  const rows = await all<MeetingDbRow>(
+    `SELECT * FROM meetings WHERE type = 'Accountability' AND status = 'scheduled' AND scheduled_at IS NOT NULL`
+  );
+  return rows.map(fromRow);
 }
 
 export async function deleteMeeting(id: string) {

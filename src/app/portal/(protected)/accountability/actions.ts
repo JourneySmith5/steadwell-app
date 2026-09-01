@@ -8,6 +8,7 @@ import {
   changeAccountabilityTier,
   cancelAccountabilitySubscription,
 } from "@/lib/accountability";
+import { findMeetingById, setClientProgressNotes } from "@/lib/repo/meetings";
 
 export async function chooseAccountabilityTier(tierId: string) {
   const user = await requireClient();
@@ -41,4 +42,23 @@ export async function cancelSubscription() {
 
   await cancelAccountabilitySubscription(user.client.id);
   redirect("/portal/account");
+}
+
+// Lets the client jot progress notes ahead of their own Accountability
+// meeting — Journey's ask, so those notes are on hand for the call. Loads
+// the meeting first and checks ownership rather than trusting the posted
+// meetingId outright: nothing stops a client from editing the form and
+// submitting another client's meeting id.
+export async function saveProgressNotes(formData: FormData) {
+  const user = await requireClient();
+  if (!user.client) redirect("/portal");
+
+  const meetingId = String(formData.get("meetingId") || "");
+  const notes = String(formData.get("notes") || "").trim();
+
+  const meeting = await findMeetingById(meetingId);
+  if (!meeting || meeting.clientId !== user.client.id) redirect("/portal/accountability");
+
+  await setClientProgressNotes(meetingId, notes || null);
+  redirect("/portal/accountability?notesSaved=1");
 }

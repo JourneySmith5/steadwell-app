@@ -1,11 +1,11 @@
 import { requireClient } from "@/lib/dal";
-import { Card, PageHeader, Button, Field, Select } from "@/components/ui";
+import { Card, PageHeader, Button, Field, TextArea, Select } from "@/components/ui";
 import { ACCOUNTABILITY_TIERS, SUBSCRIPTION_STATUS_LABELS, MEETING_STATUS_LABELS } from "@/lib/enums";
 import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { STRIPE_CONFIGURED } from "@/lib/stripe";
 import { findBookingLinkUrl } from "@/lib/repo/bookingLinks";
-import { chooseAccountabilityTier, changeTier, cancelSubscription } from "./actions";
+import { chooseAccountabilityTier, changeTier, cancelSubscription, saveProgressNotes } from "./actions";
 
 function dollars(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -14,7 +14,7 @@ function dollars(cents: number) {
 export default async function AccountabilityPage(props: PageProps<"/portal/accountability">) {
   const user = await requireClient();
   const client = user.client;
-  const { enrolled, test, changed } = await props.searchParams;
+  const { enrolled, test, changed, notesSaved } = await props.searchParams;
 
   if (!client) {
     return (
@@ -51,6 +51,11 @@ export default async function AccountabilityPage(props: PageProps<"/portal/accou
       {changed === "1" && (
         <div className="mb-6 rounded-md bg-brand-sage/20 border border-brand-sage text-brand-dark text-sm px-4 py-3">
           Your tier has been changed.
+        </div>
+      )}
+      {notesSaved === "1" && (
+        <div className="mb-6 rounded-md bg-brand-sage/20 border border-brand-sage text-brand-dark text-sm px-4 py-3">
+          Your progress notes have been saved.
         </div>
       )}
 
@@ -139,6 +144,20 @@ export default async function AccountabilityPage(props: PageProps<"/portal/accou
               </p>
               {m.clientActionItems && (
                 <p className="text-xs text-brand-slate/70 mt-1">Action items: {m.clientActionItems}</p>
+              )}
+              {m.type === "Accountability" && m.status === "scheduled" && (
+                <form action={saveProgressNotes} className="mt-3">
+                  <input type="hidden" name="meetingId" value={m.id} />
+                  <Field
+                    label="Your progress notes"
+                    hint="What you've done since last time — wins, what's been hard, anything to cover. Coach sees this before the call."
+                  >
+                    <TextArea name="notes" rows={3} defaultValue={m.clientProgressNotes ?? ""} />
+                  </Field>
+                  <Button type="submit" variant="secondary" className="text-xs px-3 py-1 mt-2">
+                    Save Notes
+                  </Button>
+                </form>
               )}
             </li>
           ))}
