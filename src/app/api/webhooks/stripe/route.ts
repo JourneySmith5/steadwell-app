@@ -49,7 +49,15 @@ export async function POST(req: Request) {
         const subscriptionId = typeof session.subscription === "string" ? session.subscription : (session.subscription?.id ?? null);
         await fulfillAccountabilityEnrollment(clientId, tier, subscriptionId);
       }
-    } else if (session.payment_status === "paid") {
+    } else if (session.payment_status === "paid" || session.payment_status === "no_payment_required") {
+      // "no_payment_required" is Stripe's real status for a Checkout Session
+      // whose total came to $0 — a 100%-off code (CHARITY100, or any stack
+      // that hits the 100% cap) never gets charged a card at all, so it's
+      // never "paid". Found this by working through exactly what CHARITY100
+      // does to a live Checkout Session before Journey's actual charity
+      // client hits it — without this, the webhook would silently do
+      // nothing for a free checkout and that client would never get their
+      // account-invitation email.
       const payment = await findPaymentByCheckoutSessionId(session.id);
       if (payment) {
         await fulfillFoundationPayment(payment.id, (session.payment_intent as string) ?? undefined);

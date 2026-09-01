@@ -31,7 +31,11 @@ export default async function CheckoutSuccessPage(props: PageProps<"/agreement/[
     const payment = await findPaymentByCheckoutSessionId(session_id);
     if (stripe && payment) {
       const session = await stripe.checkout.sessions.retrieve(session_id);
-      if (session.payment_status === "paid") {
+      // "no_payment_required" alongside "paid" — a 100%-off code (CHARITY100,
+      // or any stack reaching the 100% cap) is a genuine $0 total, which
+      // Stripe marks this way rather than "paid" since no card is ever
+      // charged. See the matching fix in the webhook handler.
+      if (session.payment_status === "paid" || session.payment_status === "no_payment_required") {
         await fulfillFoundationPayment(payment.id, (session.payment_intent as string) ?? undefined);
       }
     }
