@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/offboarding-sweep",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/db-backup",
+      "schedule": "0 8 * * *"
     }
   ]
 }

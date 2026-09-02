@@ -15,10 +15,13 @@ export const runtime = "nodejs";
 // §9 BIRTHDAY20's daily sweep (src/lib/birthdayDiscount.ts) rides along on
 // this same daily job rather than getting its own Vercel Cron entry —
 // there's no reason a second schedule slot is needed for another once-a-day
-// check, and Vercel's free tier caps how many cron schedules a project can
-// have. Its own "run now" button lives on the Discount Codes settings page
-// instead of down here in Offboarding's, since that's the more relevant
-// place for Coach to trigger it manually.
+// check. (Vercel now allows up to 100 cron schedules per project on every
+// plan including Hobby — see vercel.json, which does use a second entry for
+// the nightly database backup at /api/cron/db-backup — so this is just
+// tidiness, not a platform limit being worked around.) Its own "run now"
+// button lives on the Discount Codes settings page instead of down here in
+// Offboarding's, since that's the more relevant place for Coach to trigger
+// it manually.
 //
 // The Accountability meeting-notes reminder sweep (src/lib/meetingReminders.ts)
 // rides along here too, for the same reason — its manual "run now" trigger
