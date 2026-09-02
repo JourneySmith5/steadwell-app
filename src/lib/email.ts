@@ -23,6 +23,13 @@ function getResend(): Resend | null {
   return cachedResend;
 }
 
+// Same `*_CONFIGURED`-flag pattern as STRIPE_CONFIGURED (src/lib/stripe.ts)
+// and PUSH_CONFIGURED (src/lib/webPush.ts) — lets a page show a dev-mode
+// convenience (e.g. the forgot-password reset link, since nothing actually
+// emails it without a real key) gated on whether email is really wired up,
+// not on NODE_ENV.
+export const RESEND_CONFIGURED = !!process.env.RESEND_API_KEY;
+
 async function deliver(
   to: string,
   subject: string,
@@ -122,6 +129,29 @@ export async function sendSystemEmail(params: { clientId: string; template: stri
     }
   }
   return email;
+}
+
+// Forgot-password (§2) — the one email in this app sent to a `users` row
+// rather than a `clients` row (see the comment on setPasswordResetToken in
+// src/lib/repo/users.ts): the coach account has no client record for
+// findClientById to look up, so this can't go through createEmailDraft/
+// sendEmailDraft/sendSystemEmail like every other email above — those are
+// all client_id-scoped (email_logs.client_id is NOT NULL) and only ever
+// look up the "to" address via a client row. Calls deliver() directly with
+// an explicit address instead; nothing to log to email_logs, and no push
+// (client-facing push is keyed off client.userId, which a coach doesn't
+// have either, and pushing "reset your password" to a device that isn't
+// necessarily the one someone just used to request the reset isn't useful
+// anyway).
+export async function sendPasswordResetEmail(to: string, subject: string, body: string) {
+  await deliver(to, subject, body, "email:sent:password-reset");
+}
+
+export function passwordResetTemplate(resetUrl: string) {
+  return {
+    subject: "Reset your Steadwell password",
+    body: `We got a request to reset the password on this Steadwell account. If that was you, choose a new password here:\n\n${resetUrl}\n\nThis link expires in 1 hour and can only be used once. If you didn't request this, you can safely ignore this email — your password hasn't been changed.\n\n— Steadwell`,
+  };
 }
 
 export function applicationApprovedTemplate(fullName: string, agreementUrl: string) {

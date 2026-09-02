@@ -23,7 +23,9 @@ export default async function AccountPage() {
         <h2 className="font-heading text-lg text-brand-dark mb-2">Security</h2>
         <p className="text-sm text-brand-slate">Email verified: <strong>Yes</strong></p>
         <p className="text-sm text-brand-slate">Two-factor authentication: <strong>Enabled</strong></p>
-        <p className="text-xs text-brand-slate/60 mt-2">Password reset flow isn&apos;t built yet.</p>
+        <p className="text-xs text-brand-slate/60 mt-2">
+          Need to change your password? Sign out and use &quot;Forgot your password?&quot; on the sign-in page.
+        </p>
       </Card>
       {isOffboarding && offboarding && (
         <Card>

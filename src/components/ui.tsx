@@ -104,3 +104,8 @@ export function ErrorText({ children }: { children: ReactNode }) {
   if (!children) return null;
   return <p className="text-sm text-red-700 mt-1">{children}</p>;
 }
+
+export function SuccessText({ children }: { children: ReactNode }) {
+  if (!children) return null;
+  return <p className="text-sm text-emerald-700 mt-1">{children}</p>;
+}

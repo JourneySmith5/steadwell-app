@@ -66,6 +66,11 @@ export async function findUserByEmailVerifyToken(token: string): Promise<UserRow
   return row ? fromRow(row) : undefined;
 }
 
+export async function findUserByPasswordResetToken(token: string): Promise<UserRow | undefined> {
+  const row = await get<UserDbRow>("SELECT * FROM users WHERE password_reset_token = $t", { $t: token });
+  return row ? fromRow(row) : undefined;
+}
+
 export async function createUser(params: {
   email: string;
   passwordHash: string;
@@ -108,6 +113,36 @@ export async function setTotpSecret(userId: string, secret: string) {
 
 export async function enableTotp(userId: string) {
   await run(`UPDATE users SET totp_enabled = 1, updated_at = $now WHERE id = $id`, { $id: userId, $now: nowIso() });
+}
+
+// Forgot-password (§2) — same shape as the invitation/email-verify token
+// flows (src/lib/repo/invitations.ts): a random token + expiry stored on the
+// row, emailed as a link, single-use. Works for both roles — a coach has no
+// `clients` row to hang an invitation off of, so this lives directly on
+// `users` (the columns were already in schema.sql, just unused until now).
+// Setting a new token silently overwrites/invalidates any previous one, so
+// requesting another reset link after losing the first is always safe.
+export async function setPasswordResetToken(userId: string, token: string, expiresAt: string) {
+  await run(`UPDATE users SET password_reset_token = $token, password_reset_expires_at = $expiresAt, updated_at = $now WHERE id = $id`, {
+    $id: userId,
+    $token: token,
+    $expiresAt: expiresAt,
+    $now: nowIso(),
+  });
+}
+
+// Completing a reset proves control of the account's email, same as a
+// correct password does at login — so this also clears the token (single
+// use) and any account lockout (§2 §14), giving a genuinely locked-out user
+// their own way back in rather than a 15-minute wait plus a guess.
+export async function resetPassword(userId: string, passwordHash: string) {
+  await run(
+    `UPDATE users
+     SET password_hash = $passwordHash, password_reset_token = NULL, password_reset_expires_at = NULL,
+         failed_login_attempts = 0, locked_until = NULL, updated_at = $now
+     WHERE id = $id`,
+    { $id: userId, $passwordHash: passwordHash, $now: nowIso() }
+  );
 }
 
 // Account lockout (§2 Security, build order step 14 "privacy controls") —
