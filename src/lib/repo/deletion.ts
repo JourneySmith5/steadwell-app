@@ -18,6 +18,7 @@ const CHILD_TABLES_BY_CLIENT_ID = [
   "allocation_lines",
   "action_items",
   "meetings",
+  "messages",
   "subscriptions",
   "payments",
   "statements",
@@ -67,6 +68,11 @@ export async function hardDeleteClient(clientId: string): Promise<void> {
     });
     await run(`UPDATE clients SET user_id = NULL WHERE id = $clientId`, { $clientId: clientId });
     if (clientRow?.user_id) {
+      // push_subscriptions.user_id -> users(id) has no ON DELETE CASCADE,
+      // so deleting the user row first would fail with a foreign-key
+      // violation (and roll back the whole transaction) for any client
+      // whose account had push notifications enabled — clear those first.
+      await run(`DELETE FROM push_subscriptions WHERE user_id = $userId`, { $userId: clientRow.user_id });
       await run(`DELETE FROM users WHERE id = $userId`, { $userId: clientRow.user_id });
     }
 

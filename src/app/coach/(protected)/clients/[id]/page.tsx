@@ -22,6 +22,7 @@ import {
   type ClientStatus,
 } from "@/lib/enums";
 import { approveClient, declineClient, resendAgreementEmail, resendInvitationEmail } from "./actions";
+import { DeleteClientForm } from "./DeleteClientForm";
 import Link from "next/link";
 
 // Once Foundation Intake is submitted, Coach always has a way back into the
@@ -41,6 +42,7 @@ const PLAN_BUILDER_VISIBLE_STATUSES: ClientStatus[] = [
 
 export default async function ClientDetailPage(props: PageProps<"/coach/clients/[id]">) {
   const { id } = await props.params;
+  const { deleteMismatch } = await props.searchParams;
   const client = await findClientById(id);
   if (!client) notFound();
 
@@ -291,6 +293,13 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                   </li>
                 ))}
               </ul>
+            </Card>
+          )}
+
+          {client.fullName !== "[deleted]" && (
+            <Card>
+              <h2 className="font-heading text-lg text-red-800 mb-3">Danger Zone</h2>
+              <DeleteClientForm clientId={client.id} fullName={client.fullName} mismatch={deleteMismatch === "1"} />
             </Card>
           )}
         </div>

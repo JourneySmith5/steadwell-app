@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { listClients } from "@/lib/repo/clients";
-import { PageHeader, Card, StatusBadge } from "@/components/ui";
+import { PageHeader, Card, StatusBadge, SuccessText } from "@/components/ui";
 import { STATUS_LABELS, type ClientStatus } from "@/lib/enums";
 
 export default async function CoachClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; deleted?: string }>;
 }) {
-  const { status } = await searchParams;
+  const { status, deleted } = await searchParams;
   // Only trust a status value that's actually a real ClientStatus — anything
   // else in the URL (typo'd, stale link) just falls back to "show everyone"
   // rather than silently filtering to nothing.
@@ -23,6 +23,7 @@ export default async function CoachClientsPage({
         title="Clients"
         subtitle={filterStatus ? `${clients.length} ${STATUS_LABELS[filterStatus]}` : `${clients.length} total`}
       />
+      {deleted === "1" && <SuccessText>Client deleted.</SuccessText>}
       {filterStatus && (
         <Link href="/coach/clients" className="text-sm text-brand-slate hover:underline mb-4 inline-block">
           ← Clear filter, show all {allClients.length}

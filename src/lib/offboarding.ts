@@ -4,10 +4,14 @@ import {
   listActiveOffboardings,
   incrementRemindersSent,
   markDeleted,
+  createOffboarding,
+  findOffboardingByClientId,
   type OffboardingRow,
 } from "@/lib/repo/offboarding";
 import { hardDeleteClient } from "@/lib/repo/deletion";
 import { sendSystemEmail, offboardingReminderTemplate, offboardingFinalNoticeTemplate } from "@/lib/email";
+import { setClientStatus } from "@/lib/status";
+import { OFFBOARDING_TRIGGER_STATUSES } from "@/lib/enums";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -88,6 +92,41 @@ export async function runDeletionSweep(now: Date = new Date()): Promise<{ delete
   }
 
   return { deleted };
+}
+
+// An admin escape hatch, not part of the normal §16 flow — for a client
+// record that's stuck (a broken test signup, a duplicate, someone who
+// never should've been created) rather than one that went through a real
+// engagement and earned the usual 30-day export window. Runs the exact
+// same hard-delete (`hardDeleteClient`) the real 30-day sweep eventually
+// would, just immediately, and reuses the same `offboardings` row as its
+// audit tombstone — so this is a strictly faster path to the same end
+// state, not a separate/lesser deletion.
+//
+// A client not yet in a terminal status has no `offboardings` row yet;
+// `setClientStatus` creates one as a side effect of the "closed" transition
+// (see src/lib/status.ts) exactly like it would for a normal close. A
+// client already terminal (closed/canceled/graduated) should already have
+// one — `createOffboarding` is called directly only as a defensive
+// fallback, since `offboardings.client_id` is UNIQUE and re-triggering
+// `setClientStatus` on an already-terminal client would try to insert a
+// second row and fail.
+export async function deleteClientImmediately(clientId: string, note?: string): Promise<void> {
+  const client = await findClientById(clientId);
+  if (!client) throw new Error(`Client ${clientId} not found`);
+
+  let offboarding = await findOffboardingByClientId(clientId);
+  if (!offboarding) {
+    if (OFFBOARDING_TRIGGER_STATUSES.includes(client.status)) {
+      offboarding = await createOffboarding(clientId);
+    } else {
+      await setClientStatus(clientId, "closed", note ?? "Deleted immediately by Coach (admin action)");
+      offboarding = await findOffboardingByClientId(clientId);
+    }
+  }
+
+  await hardDeleteClient(clientId);
+  if (offboarding) await markDeleted(clientId);
 }
 
 export type { OffboardingRow };
