@@ -98,6 +98,19 @@ export async function listClients(): Promise<ClientRow[]> {
   return rows.map(fromRow);
 }
 
+// A tombstone left by hardDeleteClient (§16's 30-day sweep, or the
+// immediate "Delete Client Permanently" admin action) — the clients row
+// has to survive (the offboardings audit record has a foreign key to it,
+// and it's the parent row for anything else still pointing at it), but
+// every identifying field on it is overwritten first. Real deletion just
+// doesn't mean "the row is gone" here — see hardDeleteClient's own
+// comment. UI list views filter these out with this so a completed
+// deletion doesn't linger as a visible "[deleted]" row forever; nothing
+// about the data itself changes; this is purely a display filter.
+export function isDeletedClient(client: Pick<ClientRow, "email">): boolean {
+  return client.email.endsWith("@steadwell.invalid");
+}
+
 export async function linkClientToUser(clientId: string, userId: string) {
   await run(`UPDATE clients SET user_id = $userId, updated_at = $now WHERE id = $id`, {
     $id: clientId,

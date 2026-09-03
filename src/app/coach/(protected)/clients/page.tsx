@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listClients } from "@/lib/repo/clients";
+import { listClients, isDeletedClient } from "@/lib/repo/clients";
 import { PageHeader, Card, StatusBadge, SuccessText } from "@/components/ui";
 import { STATUS_LABELS, type ClientStatus } from "@/lib/enums";
 
@@ -14,7 +14,10 @@ export default async function CoachClientsPage({
   // rather than silently filtering to nothing.
   const filterStatus = status && status in STATUS_LABELS ? (status as ClientStatus) : undefined;
 
-  const allClients = await listClients();
+  // A hard-deleted client's row survives as an anonymized tombstone (see
+  // isDeletedClient) but shouldn't show up in a list of clients anymore —
+  // that's the whole point of deleting one.
+  const allClients = (await listClients()).filter((c) => !isDeletedClient(c));
   const clients = filterStatus ? allClients.filter((c) => c.status === filterStatus) : allClients;
 
   return (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listClients, findClientById } from "@/lib/repo/clients";
+import { listClients, findClientById, isDeletedClient } from "@/lib/repo/clients";
 import { listActiveOffboardings } from "@/lib/repo/offboarding";
 import { getAttentionQueue, attentionQueueCount, type AttentionItem } from "@/lib/attentionQueue";
 import { PageHeader, Card, Button } from "@/components/ui";
@@ -32,11 +32,14 @@ function AttentionSection({ title, items }: { title: string; items: AttentionIte
 }
 
 export default async function CoachDashboardPage() {
-  const [clients, attention, offboardings] = await Promise.all([
+  const [allClients, attention, offboardings] = await Promise.all([
     listClients(),
     getAttentionQueue(),
     listActiveOffboardings(),
   ]);
+  // Same reasoning as the Clients list page — a hard-deleted client's
+  // tombstone row shouldn't count toward or show up in the pipeline.
+  const clients = allClients.filter((c) => !isDeletedClient(c));
   const counts = clients.reduce<Record<string, number>>((acc, c) => {
     acc[c.status] = (acc[c.status] ?? 0) + 1;
     return acc;
