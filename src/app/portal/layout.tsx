@@ -3,18 +3,8 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/dal";
 import { logout } from "@/app/actions/logout";
 import { PushNotifications } from "@/components/PushNotifications";
-import { BrandMark } from "@/components/BrandMark";
-
-// Nav order matches §10 exactly — keep it small.
-const NAV = [
-  { href: "/portal", label: "Home" },
-  { href: "/portal/foundation", label: "Financial Foundation" },
-  { href: "/portal/documents", label: "Documents" },
-  { href: "/portal/plan", label: "My Plan" },
-  { href: "/portal/accountability", label: "Accountability" },
-  { href: "/portal/billing", label: "Billing" },
-  { href: "/portal/account", label: "Account" },
-];
+import { NavHeader, type NavHeaderItem } from "@/components/NavHeader";
+import { countUnreadForClientThread } from "@/lib/repo/messages";
 
 // Shell for all of /portal*, including the 2FA setup page — so this only
 // checks "is this a client" and "is their email verified" (that redirect
@@ -27,34 +17,49 @@ export default async function PortalLayout({ children }: LayoutProps<"/portal">)
   if (!user.emailVerified) {
     redirect("/verify-email/pending");
   }
+  const unreadMessages = user.client ? await countUnreadForClientThread(user.client.id, "client") : 0;
+
+  // Nav order matches §10, with Messages added at the end.
+  const nav: NavHeaderItem[] = [
+    { href: "/portal", label: "Home" },
+    { href: "/portal/foundation", label: "Financial Foundation" },
+    { href: "/portal/documents", label: "Documents" },
+    { href: "/portal/plan", label: "My Plan" },
+    { href: "/portal/accountability", label: "Accountability" },
+    { href: "/portal/billing", label: "Billing" },
+    { href: "/portal/messages", label: "Messages", badge: unreadMessages },
+    { href: "/portal/account", label: "Account" },
+  ];
 
   return (
     <div className="flex-1 flex flex-col">
       <PushNotifications vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? null} />
-      <header className="border-b border-brand-pale bg-white">
-        <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
-          <span className="flex items-center gap-2 font-heading text-xl text-brand-dark">
-            <BrandMark className="h-7 w-7 shrink-0" />
-            Steadwell
-          </span>
-          <form action={logout}>
-            <button type="submit" className="text-sm text-brand-slate hover:text-brand-dark">
-              Sign out
-            </button>
-          </form>
-        </div>
-        <nav className="max-w-4xl mx-auto px-6 flex gap-5 overflow-x-auto pb-2">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-sm text-brand-slate hover:text-brand-dark whitespace-nowrap"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </header>
+      <NavHeader
+        navItems={nav}
+        logoutAction={logout}
+        maxWidthClassName="max-w-4xl"
+        rightSlot={
+          // Always one tap away, not buried behind the hamburger — the
+          // whole point of a "Need help?" affordance is that it's visible
+          // the moment someone needs it, per Journey's request.
+          <Link
+            href="/portal/messages"
+            className="relative flex items-center gap-1.5 text-sm text-brand-dark font-medium whitespace-nowrap"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5 shrink-0">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 19H8a5 5 0 1 1 5-5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 14v.01M12 11a1.5 1.5 0 1 0-1.5-1.5" />
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+            <span className="hidden sm:inline">Need help?</span>
+            {unreadMessages > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 sm:static sm:ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-brand-accent text-white text-[10px] leading-none">
+                {unreadMessages > 9 ? "9+" : unreadMessages}
+              </span>
+            )}
+          </Link>
+        }
+      />
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-8">{children}</main>
     </div>
   );

@@ -562,3 +562,23 @@ ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_24h_sent_at TEXT;
 -- src/lib/repo/discountCodes.ts.
 ALTER TABLE discount_codes ADD COLUMN IF NOT EXISTS max_redemptions INTEGER;
 ALTER TABLE discount_codes ADD COLUMN IF NOT EXISTS redemption_count INTEGER NOT NULL DEFAULT 0;
+
+-- In-app 2-way messaging (Journey's ask — a "Need help?" icon in the client
+-- portal that opens a real conversation with Coach, not just a mailto:
+-- link). One thread per client, same as every other per-client concept in
+-- this app (meetings, statements, emails) — there's no group chat and no
+-- coach-to-coach messaging, so a single client_id is enough to identify a
+-- thread; sender_role tells the two sides of it apart. read_at tracks when
+-- the *recipient* (the party who didn't send it) viewed the message — the
+-- sender obviously has "read" their own — which is all a 2-party thread
+-- needs for unread counts on both the Coach inbox (src/app/coach/messages)
+-- and the client's Messages page (src/app/portal/messages).
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL REFERENCES clients(id),
+  sender_role TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (now()),
+  read_at TEXT
+);
+CREATE INDEX IF NOT EXISTS messages_client_id_idx ON messages(client_id);

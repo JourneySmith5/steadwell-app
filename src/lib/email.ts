@@ -147,6 +147,15 @@ export async function sendPasswordResetEmail(to: string, subject: string, body: 
   await deliver(to, subject, body, "email:sent:password-reset");
 }
 
+// Same reasoning, generalized: any email to an address that isn't looked up
+// via a `clients` row. In-app Messages (§ "In-app 2-way messaging" in
+// schema.sql) uses this to notify Coach a client sent her a message — Coach
+// has no clients row for sendSystemEmail's lookup to work with, same as the
+// password-reset case above.
+export async function sendDirectEmail(to: string, subject: string, body: string, logTag: string) {
+  await deliver(to, subject, body, logTag);
+}
+
 export function passwordResetTemplate(resetUrl: string) {
   return {
     subject: "Reset your Steadwell password",

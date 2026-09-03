@@ -51,6 +51,15 @@ function fromRow(row: UserDbRow): UserRow {
   };
 }
 
+// There's exactly one coach account in this app (same assumption
+// sendPushToCoach in src/lib/webPush.ts already makes, for the same
+// reason — no coach-to-coach concept exists anywhere in the data model).
+// LIMIT 1 rather than hard-asserting "exactly one" so this stays a no-op
+// (not a crash) in the unlikely event it's ever zero.
+export async function findCoachUser(): Promise<UserRow | undefined> {
+  return get<UserDbRow>("SELECT * FROM users WHERE role = 'coach' LIMIT 1").then((row) => (row ? fromRow(row) : undefined));
+}
+
 export async function findUserByEmail(email: string): Promise<UserRow | undefined> {
   const row = await get<UserDbRow>("SELECT * FROM users WHERE email = $email", { $email: email.toLowerCase() });
   return row ? fromRow(row) : undefined;

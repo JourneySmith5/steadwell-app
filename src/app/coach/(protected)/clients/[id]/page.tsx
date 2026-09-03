@@ -7,6 +7,7 @@ import { listPaymentsForClient } from "@/lib/repo/payments";
 import { listEmailsForClient } from "@/lib/repo/emails";
 import { listStatusEvents } from "@/lib/status";
 import { listMeetingsForClient } from "@/lib/repo/meetings";
+import { countMessagesForClient, countUnreadForClientThread } from "@/lib/repo/messages";
 import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { findOffboardingByClientId } from "@/lib/repo/offboarding";
 import { listStatements } from "@/lib/repo/statements";
@@ -43,7 +44,7 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
   const client = await findClientById(id);
   if (!client) notFound();
 
-  const [application, invitation, checkoutLink, payments, emails, timeline, meetings, subscription, offboarding, statements] =
+  const [application, invitation, checkoutLink, payments, emails, timeline, meetings, subscription, offboarding, statements, messageCount, unreadMessages] =
     await Promise.all([
       findApplicationByClientId(id),
       findInvitationByClientId(id),
@@ -55,6 +56,8 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
       client.userId ? findSubscriptionByClientId(id) : Promise.resolve(undefined),
       OFFBOARDING_TRIGGER_STATUSES.includes(client.status) ? findOffboardingByClientId(id) : Promise.resolve(undefined),
       client.userId ? listStatements(id) : Promise.resolve([]),
+      client.userId ? countMessagesForClient(id) : Promise.resolve(0),
+      client.userId ? countUnreadForClientThread(id, "coach") : Promise.resolve(0),
     ]);
   const subscriptionTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
 
@@ -147,6 +150,27 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                 Google Calendar&apos;s Appointment Schedule handles actual booking — this just tracks
                 status, notes, and client action items.
               </p>
+            </Card>
+          )}
+
+          {client.userId && (
+            <Card>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-heading text-lg text-brand-dark">Messages</h2>
+                {unreadMessages > 0 && (
+                  <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-brand-accent text-white text-xs leading-none">
+                    {unreadMessages}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-brand-slate mb-3">
+                {messageCount === 0
+                  ? "No messages yet."
+                  : `${messageCount} message${messageCount === 1 ? "" : "s"}${unreadMessages > 0 ? ` — ${unreadMessages} unread` : ""}.`}
+              </p>
+              <Link href={`/coach/clients/${client.id}/messages`}>
+                <Button variant="secondary">Open Conversation</Button>
+              </Link>
             </Card>
           )}
 
