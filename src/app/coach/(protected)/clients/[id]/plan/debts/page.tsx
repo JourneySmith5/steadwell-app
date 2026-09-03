@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { requireClientAccess } from "@/lib/dal";
 import { listDebts } from "@/lib/repo/debts";
 import { findDebtDecisionByDebtId } from "@/lib/repo/debtDecisions";
 import { generateDebtInsights, minimumViablePayment } from "@/lib/planCalc";
@@ -11,10 +9,8 @@ import { PlanBuilderHeader, money } from "../shared";
 import { saveDebtDecision } from "./actions";
 
 export default async function DebtStrategyPage(props: PageProps<"/coach/clients/[id]/plan/debts">) {
-  await requireCoach();
   const { id: clientId } = await props.params;
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  const { client } = await requireClientAccess(clientId);
 
   const debts = await listDebts(clientId);
 

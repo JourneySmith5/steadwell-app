@@ -1,8 +1,7 @@
 "use server";
 
-import { notFound, redirect } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { redirect } from "next/navigation";
+import { requireClientAccess } from "@/lib/dal";
 import { createActionItem, updateActionItem, deleteActionItem } from "@/lib/repo/actionItems";
 import { markPlanReviewed, finalizePlan, presentPlan } from "@/lib/plan";
 import type { ActionItemStatus } from "@/lib/enums";
@@ -13,8 +12,7 @@ function path(clientId: string) {
 }
 
 async function assertClient(clientId: string) {
-  await requireCoach();
-  if (!(await findClientById(clientId))) notFound();
+  await requireClientAccess(clientId);
 }
 
 export async function addActionItem(clientId: string, formData: FormData) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
+import { requireClientAccess } from "@/lib/dal";
 import { sendEmailDraft } from "@/lib/email";
 
 export type SendEmailState = { message?: string } | undefined;
@@ -12,7 +12,7 @@ export async function sendEmail(
   _state: SendEmailState,
   formData: FormData
 ): Promise<SendEmailState> {
-  await requireCoach();
+  await requireClientAccess(clientId);
   const subject = String(formData.get("subject") || "");
   const body = String(formData.get("body") || "");
   if (!subject.trim() || !body.trim()) {

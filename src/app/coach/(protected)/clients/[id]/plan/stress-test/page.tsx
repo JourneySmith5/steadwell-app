@@ -1,16 +1,12 @@
-import { notFound } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { requireClientAccess } from "@/lib/dal";
 import { listIncomeSources } from "@/lib/repo/incomeSources";
 import { computeStressTest } from "@/lib/planCalc";
 import { Card, Button } from "@/components/ui";
 import { PlanBuilderHeader, money } from "../shared";
 
 export default async function StressTestPage(props: PageProps<"/coach/clients/[id]/plan/stress-test">) {
-  await requireCoach();
   const { id: clientId } = await props.params;
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  const { client } = await requireClientAccess(clientId);
 
   const searchParams = await props.searchParams;
   const rawExclude = searchParams.exclude;

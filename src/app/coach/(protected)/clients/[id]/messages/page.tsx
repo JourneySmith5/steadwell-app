@@ -1,16 +1,12 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { requireClientAccess } from "@/lib/dal";
 import { listMessagesForClient, markThreadRead } from "@/lib/repo/messages";
 import { Card, PageHeader, TextArea, Button } from "@/components/ui";
 import { replyToClient } from "./actions";
 
 export default async function CoachClientMessagesPage(props: PageProps<"/coach/clients/[id]/messages">) {
-  await requireCoach();
   const { id: clientId } = await props.params;
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  const { client } = await requireClientAccess(clientId);
 
   const messages = await listMessagesForClient(clientId);
   // Opening this thread is what "reading" it means — same idea as opening

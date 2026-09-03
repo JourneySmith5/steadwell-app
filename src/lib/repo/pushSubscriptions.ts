@@ -54,13 +54,14 @@ export async function listPushSubscriptionsForUser(userId: string): Promise<Push
   return rows.map(fromRow);
 }
 
-// Every subscription belonging to any user with the given role — how
-// sendPushToCoach reaches whichever coach account(s) are set up, without
-// needing to know a specific coach user id ahead of time.
-export async function listPushSubscriptionsForRole(role: "coach" | "client"): Promise<PushSubscriptionRow[]> {
+// Every subscription belonging to any user with one of the given roles —
+// how sendPushToCoach reaches every coach-side account (owner + every
+// coach) for a business-wide event (new application, payment received),
+// without needing to know a specific user id ahead of time.
+export async function listPushSubscriptionsForRoles(roles: string[]): Promise<PushSubscriptionRow[]> {
   const rows = await all<PushSubscriptionDbRow>(
-    `SELECT ps.* FROM push_subscriptions ps JOIN users u ON u.id = ps.user_id WHERE u.role = $role`,
-    { $role: role }
+    `SELECT ps.* FROM push_subscriptions ps JOIN users u ON u.id = ps.user_id WHERE u.role = ANY($roles::text[])`,
+    { $roles: roles }
   );
   return rows.map(fromRow);
 }

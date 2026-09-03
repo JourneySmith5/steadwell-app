@@ -1,10 +1,10 @@
-import { requireCoach } from "@/lib/dal";
+import { requireOwner } from "@/lib/dal";
 import { listBookingLinks, SYSTEM_BOOKING_LINK_KEYS } from "@/lib/repo/bookingLinks";
 import { Card, PageHeader, Field, TextInput, Button } from "@/components/ui";
 import { saveBookingLink, addBookingLink, removeBookingLink } from "./actions";
 
 export default async function BookingLinksPage() {
-  await requireCoach();
+  await requireOwner();
   const links = await listBookingLinks();
 
   return (

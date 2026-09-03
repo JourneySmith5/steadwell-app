@@ -1,4 +1,4 @@
-import { get, run, newId, nowIso } from "@/lib/db/client";
+import { get, all, run, newId, nowIso, withTransaction } from "@/lib/db/client";
 import type { UserRole } from "@/lib/enums";
 
 export interface UserRow {
@@ -15,6 +15,7 @@ export interface UserRow {
   passwordResetExpiresAt: string | null;
   failedLoginAttempts: number;
   lockedUntil: string | null;
+  isDefaultCoach: boolean;
 }
 
 interface UserDbRow {
@@ -31,6 +32,7 @@ interface UserDbRow {
   password_reset_expires_at: string | null;
   failed_login_attempts: number;
   locked_until: string | null;
+  is_default_coach: number;
 }
 
 function fromRow(row: UserDbRow): UserRow {
@@ -48,16 +50,48 @@ function fromRow(row: UserDbRow): UserRow {
     passwordResetExpiresAt: row.password_reset_expires_at,
     failedLoginAttempts: row.failed_login_attempts,
     lockedUntil: row.locked_until,
+    isDefaultCoach: !!row.is_default_coach,
   };
 }
 
-// There's exactly one coach account in this app (same assumption
-// sendPushToCoach in src/lib/webPush.ts already makes, for the same
-// reason — no coach-to-coach concept exists anywhere in the data model).
-// LIMIT 1 rather than hard-asserting "exactly one" so this stays a no-op
-// (not a crash) in the unlikely event it's ever zero.
-export async function findCoachUser(): Promise<UserRow | undefined> {
-  return get<UserDbRow>("SELECT * FROM users WHERE role = 'coach' LIMIT 1").then((row) => (row ? fromRow(row) : undefined));
+// The owner (Boldly Built) — sees every client, every coach-side admin
+// action. LIMIT 1 rather than hard-asserting "exactly one" so this stays a
+// no-op (not a crash) in the unlikely event it's ever zero.
+export async function findOwnerUser(): Promise<UserRow | undefined> {
+  return get<UserDbRow>("SELECT * FROM users WHERE role = 'owner' LIMIT 1").then((row) => (row ? fromRow(row) : undefined));
+}
+
+// Which coach a new application auto-assigns to (src/app/apply/actions.ts)
+// — undefined until the owner sets one (see setDefaultCoach), which is a
+// normal state (no crash, no assignment) before any coach has been hired.
+export async function findDefaultCoach(): Promise<UserRow | undefined> {
+  return get<UserDbRow>("SELECT * FROM users WHERE role = 'coach' AND is_default_coach = 1 LIMIT 1").then((row) =>
+    row ? fromRow(row) : undefined
+  );
+}
+
+// The owner Team page's roster — everyone who can log into the coach side,
+// owner first. There's no separate "list all coaches" — the owner is
+// always exactly one row and always belongs on this list too.
+export async function listCoachSideUsers(): Promise<UserRow[]> {
+  const rows = await all<UserDbRow>(
+    `SELECT * FROM users WHERE role IN ('owner','coach') ORDER BY (role = 'owner') DESC, created_at ASC`
+  );
+  return rows.map(fromRow);
+}
+
+// At most one default coach at a time — clears any existing one first so
+// this can't accidentally leave two rows both flagged (which would make
+// findDefaultCoach's LIMIT 1 arbitrarily pick between them). Transactional
+// so a crash between the two UPDATEs can't leave zero defaults either.
+export async function setDefaultCoach(userId: string): Promise<void> {
+  await withTransaction(async () => {
+    await run(`UPDATE users SET is_default_coach = 0, updated_at = $now WHERE role = 'coach'`, { $now: nowIso() });
+    await run(`UPDATE users SET is_default_coach = 1, updated_at = $now WHERE id = $id AND role = 'coach'`, {
+      $id: userId,
+      $now: nowIso(),
+    });
+  });
 }
 
 export async function findUserByEmail(email: string): Promise<UserRow | undefined> {

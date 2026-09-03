@@ -223,6 +223,16 @@ export function accountInvitationTemplate(fullName: string, inviteUrl: string) {
   };
 }
 
+// Coach self-service invite (owner's Team page) — sent via sendDirectEmail
+// since there's no clients row to look this address up through (same
+// reasoning as passwordResetTemplate above).
+export function coachInvitationTemplate(fullName: string, inviteUrl: string) {
+  return {
+    subject: "You've been invited to Steadwell",
+    body: `Hi ${fullName},\n\nYou've been added as a coach on Steadwell. Use the link below to create your account password and secure your account with two-factor authentication.\n\n${inviteUrl}\n\nThis link expires in 7 days.\n\n— Steadwell`,
+  };
+}
+
 // §16 weekly reminder — "sent every week until the client exports or day 30
 // arrives, whichever comes first."
 export function offboardingReminderTemplate(fullName: string, daysRemaining: number, deletionDate: string, exportUrl: string) {

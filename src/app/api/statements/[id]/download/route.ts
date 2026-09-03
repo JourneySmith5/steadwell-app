@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { get as getBlob } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/dal";
 import { findStatementById } from "@/lib/repo/statements";
+import { findClientById } from "@/lib/repo/clients";
 
 // Not a page — Route Handlers aren't covered by the portal/coach layouts'
 // auth checks (see AGENTS.md / earlier DAL comments), so this checks who's
@@ -29,9 +30,15 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const isCoach = user.role === "coach";
+  // Owner: any client. A hired coach: only a client actually assigned to
+  // them — same rule requireClientAccess enforces on the coach pages
+  // themselves, repeated here since Route Handlers aren't covered by that
+  // layout-level check (see the file comment above).
+  const isOwner = user.role === "owner";
+  const isAssignedCoach =
+    user.role === "coach" && (await findClientById(statement.clientId))?.coachId === user.id;
   const isOwningClient = user.role === "client" && user.client?.id === statement.clientId;
-  if (!isCoach && !isOwningClient) {
+  if (!isOwner && !isAssignedCoach && !isOwningClient) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

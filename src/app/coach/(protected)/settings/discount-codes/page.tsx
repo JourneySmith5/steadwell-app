@@ -1,4 +1,4 @@
-import { requireCoach } from "@/lib/dal";
+import { requireOwner } from "@/lib/dal";
 import { listDiscountCodes } from "@/lib/repo/discountCodes";
 import { Card, PageHeader, Field, TextInput, Button, ErrorText } from "@/components/ui";
 import { toggleDiscountCode, saveDiscountCode, addDiscountCode, runBirthdaySweepNow, generateOneTimeCode } from "./actions";
@@ -16,7 +16,7 @@ const ONE_TIME_TEMPLATE_CODES = new Set(["FAMILY90", "FRIENDS50", "CHARITY100"])
 export default async function DiscountCodesPage(props: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireCoach();
+  await requireOwner();
   const [allCodes, { error }] = await Promise.all([listDiscountCodes(), props.searchParams]);
 
   // One-time children (max_redemptions set) get their own section below,

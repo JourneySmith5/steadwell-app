@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { findUserByEmail, isLockedOut, recordFailedLogin, clearFailedLogins } from "@/lib/repo/users";
 import { verifyPassword } from "@/lib/password";
 import { getSession } from "@/lib/session";
+import { isCoachSideRole } from "@/lib/enums";
 
 export type LoginState = { message?: string } | undefined;
 
@@ -57,5 +58,5 @@ export async function login(_state: LoginState, formData: FormData): Promise<Log
   session.totpVerified = true;
   session.pendingUserId = undefined;
   await session.save();
-  redirect(user.role === "coach" ? "/coach" : "/portal");
+  redirect(isCoachSideRole(user.role) ? "/coach" : "/portal");
 }

@@ -1,23 +1,34 @@
-import { requireRole } from "@/lib/dal";
+import { requireCoachRole } from "@/lib/dal";
 import { logout } from "@/app/actions/logout";
 import { PushNotifications } from "@/components/PushNotifications";
 import { NavHeader, type NavHeaderItem } from "@/components/NavHeader";
 import { countUnreadForCoach } from "@/lib/repo/messages";
 
 // Shell for all of /coach*, including the 2FA setup page — so this only
-// checks "is this a coach", not "has 2FA been enabled". The stricter check
-// lives in coach/(protected)/layout.tsx, applied to everything except
-// setup-2fa itself (see that file for why).
+// checks "is this a coach-side role" (owner or coach), not "has 2FA been
+// enabled". The stricter check lives in coach/(protected)/layout.tsx,
+// applied to everything except setup-2fa itself (see that file for why).
 export default async function CoachLayout({ children }: LayoutProps<"/coach">) {
-  await requireRole("coach");
-  const unreadMessages = await countUnreadForCoach();
+  const user = await requireCoachRole();
+  const isOwner = user.role === "owner";
+  const unreadMessages = await countUnreadForCoach(isOwner ? undefined : user.id);
 
   const nav: NavHeaderItem[] = [
     { href: "/coach", label: "Dashboard" },
     { href: "/coach/clients", label: "Clients" },
     { href: "/coach/messages", label: "Messages", badge: unreadMessages },
-    { href: "/coach/settings/discount-codes", label: "Discount Codes" },
-    { href: "/coach/settings/booking-links", label: "Booking Links" },
+    // Owner-only: global config, revenue, and the Team roster — a hired
+    // coach doesn't manage pricing/booking links or see business numbers,
+    // and requireOwner() enforces this server-side too if they typed the
+    // URL directly (see dal.ts).
+    ...(isOwner
+      ? [
+          { href: "/coach/team", label: "Team" },
+          { href: "/coach/reports", label: "Reports" },
+          { href: "/coach/settings/discount-codes", label: "Discount Codes" },
+          { href: "/coach/settings/booking-links", label: "Booking Links" },
+        ]
+      : []),
   ];
 
   return (

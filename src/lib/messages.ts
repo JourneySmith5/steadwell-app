@@ -2,35 +2,52 @@ import "server-only";
 import { createMessage, markThreadRead } from "@/lib/repo/messages";
 import type { MessageRow } from "@/lib/repo/messages";
 import { findClientById } from "@/lib/repo/clients";
-import { findCoachUser } from "@/lib/repo/users";
-import { sendPushToCoach, sendPushToUser } from "@/lib/webPush";
+import { findOwnerUser, findUserById, type UserRow } from "@/lib/repo/users";
+import { sendPushToUser } from "@/lib/webPush";
 import { sendDirectEmail } from "@/lib/email";
 
 // Client → Coach. The whole point of a "Need help?" button is that it
-// actually reaches Journey, not that it sits unread in an inbox she might
-// not check — so this fires both channels: push (if she has a
-// subscription) and a direct email (bypassing the client-scoped
-// email_logs/sendSystemEmail pipeline — Coach has no clients row for that
-// pipeline's address lookup to work with, same reasoning as
-// sendPasswordResetEmail in src/lib/email.ts).
+// actually reaches a real person, not that it sits unread in an inbox
+// nobody checks — so this fires both channels: push (if subscribed) and a
+// direct email (bypassing the client-scoped email_logs/sendSystemEmail
+// pipeline — a coach-side user has no clients row for that pipeline's
+// address lookup to work with, same reasoning as sendPasswordResetEmail in
+// src/lib/email.ts).
+//
+// Reaches this client's assigned coach specifically, not every coach —
+// with multiple coaches, coach B shouldn't get paged for coach A's
+// client — plus the owner, who sees every client's messages by design.
+// Deduped since before any coach is hired (or for a client nobody's
+// assigned yet), the only recipient is the owner.
 export async function sendClientMessage(clientId: string, body: string): Promise<MessageRow> {
   const message = await createMessage({ clientId, senderRole: "client", body });
-  const [client, coach] = await Promise.all([findClientById(clientId), findCoachUser()]);
+  const client = await findClientById(clientId);
   const clientName = client?.fullName ?? "A client";
 
-  if (coach) {
-    await sendDirectEmail(
-      coach.email,
-      `New message from ${clientName}`,
-      `${clientName} sent you a message on Steadwell:\n\n"${body}"\n\nReply from the Coach Dashboard: /coach/clients/${clientId}/messages`,
-      "email:sent:coach-message-notification"
-    );
-  }
-  await sendPushToCoach({
-    title: `New message from ${clientName}`,
-    body,
-    url: `/coach/clients/${clientId}/messages`,
-  });
+  const [assignedCoach, owner] = await Promise.all([
+    client?.coachId ? findUserById(client.coachId) : Promise.resolve(undefined),
+    findOwnerUser(),
+  ]);
+  const recipients = new Map<string, UserRow>();
+  for (const u of [assignedCoach, owner]) if (u) recipients.set(u.id, u);
+
+  await Promise.all(
+    Array.from(recipients.values()).map((recipient) =>
+      Promise.all([
+        sendDirectEmail(
+          recipient.email,
+          `New message from ${clientName}`,
+          `${clientName} sent you a message on Steadwell:\n\n"${body}"\n\nReply from the Coach Dashboard: /coach/clients/${clientId}/messages`,
+          "email:sent:coach-message-notification"
+        ),
+        sendPushToUser(recipient.id, {
+          title: `New message from ${clientName}`,
+          body,
+          url: `/coach/clients/${clientId}/messages`,
+        }),
+      ])
+    )
+  );
 
   return message;
 }

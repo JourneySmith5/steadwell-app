@@ -1,7 +1,5 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { requireClientAccess } from "@/lib/dal";
 import { computeAllocationSummary } from "@/lib/planCalc";
 import { listActionItems } from "@/lib/repo/actionItems";
 import { ACTION_ITEM_STATUSES, ACTION_ITEM_STATUS_LABELS, PLAN_STATUS_LABELS } from "@/lib/enums";
@@ -10,10 +8,8 @@ import { PlanBuilderHeader, money } from "../shared";
 import { addActionItem, saveActionItem, removeActionItem, markReviewedAction, finalizePlanAction, presentPlanAction } from "./actions";
 
 export default async function FinalizePage(props: PageProps<"/coach/clients/[id]/plan/finalize">) {
-  await requireCoach();
   const { id: clientId } = await props.params;
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  const { client } = await requireClientAccess(clientId);
 
   const searchParams = await props.searchParams;
   const confirmOverride = searchParams.confirmOverride === "1";

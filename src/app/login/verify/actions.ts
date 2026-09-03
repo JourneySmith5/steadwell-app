@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { findUserById, isLockedOut, recordFailedLogin, clearFailedLogins } from "@/lib/repo/users";
 import { verifyTotpToken } from "@/lib/totp";
+import { isCoachSideRole } from "@/lib/enums";
 
 export type VerifyState = { message?: string } | undefined;
 
@@ -47,5 +48,5 @@ export async function verifyTotpLogin(_state: VerifyState, formData: FormData): 
   session.totpVerified = true;
   session.pendingUserId = undefined;
   await session.save();
-  redirect(user!.role === "coach" ? "/coach" : "/portal");
+  redirect(isCoachSideRole(user!.role) ? "/coach" : "/portal");
 }

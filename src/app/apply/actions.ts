@@ -2,8 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createClient } from "@/lib/repo/clients";
+import { createClient, setClientCoach } from "@/lib/repo/clients";
 import { createApplication } from "@/lib/repo/applications";
+import { findDefaultCoach } from "@/lib/repo/users";
 import { setClientStatus } from "@/lib/status";
 import { sendPushToCoach } from "@/lib/webPush";
 
@@ -66,6 +67,14 @@ export async function submitApplication(_state: ApplyFormState, formData: FormDa
     city: data.city,
     preferredContact: data.preferredContact,
   });
+
+  // Auto-assign to whichever coach the owner has flagged as default (Team
+  // page) — a no-op (stays unassigned, owner can assign manually) before
+  // any coach has been hired or flagged.
+  const defaultCoach = await findDefaultCoach();
+  if (defaultCoach) {
+    await setClientCoach(client.id, defaultCoach.id);
+  }
 
   await createApplication({
     clientId: client.id,

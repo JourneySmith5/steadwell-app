@@ -4,8 +4,8 @@ import { listThreadSummariesForCoach } from "@/lib/repo/messages";
 import { Card, PageHeader } from "@/components/ui";
 
 export default async function CoachMessagesPage() {
-  await requireCoach();
-  const threads = await listThreadSummariesForCoach();
+  const user = await requireCoach();
+  const threads = await listThreadSummariesForCoach(user.role === "owner" ? undefined : user.id);
 
   return (
     <div>

@@ -582,3 +582,51 @@ CREATE TABLE IF NOT EXISTS messages (
   read_at TEXT
 );
 CREATE INDEX IF NOT EXISTS messages_client_id_idx ON messages(client_id);
+
+-- Multi-coach support (Journey's ask, once she hires a coach) — a new
+-- "owner" role above "coach": the owner sees every client and every
+-- admin action, a coach sees only clients assigned to them. Postgres
+-- doesn't support `ADD CONSTRAINT IF NOT EXISTS` for a CHECK constraint,
+-- so this drops and re-adds it every time this file runs — cheap and
+-- correct either way, unlike an ALTER that would error on a second run.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('owner','coach','client'));
+-- Which coach-role account new applications auto-assign to (see
+-- setDefaultCoach/findDefaultCoach in src/lib/repo/users.ts) — at most one
+-- true at a time, enforced in application code rather than a DB constraint
+-- (a partial unique index on `is_default_coach = true` would work too, but
+-- this app's scale doesn't need it and setDefaultCoach's own transaction
+-- is the one place this is ever written).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_default_coach INTEGER NOT NULL DEFAULT 0;
+-- Nullable: a client with no coach assigned yet (existing clients before
+-- this migration, or a new application before a default coach exists) —
+-- the owner can assign/reassign from the client detail page either way.
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS coach_id TEXT REFERENCES users(id);
+CREATE INDEX IF NOT EXISTS idx_clients_coach_id ON clients(coach_id);
+-- One-time promotion of the one real coach account that existed before
+-- "owner" did. Deliberately targets this specific email rather than a
+-- blanket `WHERE role = 'coach'` — this file re-runs on every cold start,
+-- and a blanket condition would keep matching (and wrongly promoting)
+-- every future coach account Journey ever invites, not just this one.
+-- Once this row's role flips to 'owner', the WHERE stops matching it too,
+-- so this is a true one-time migration, not just a no-op-after-first-run.
+UPDATE users SET role = 'owner' WHERE role = 'coach' AND email = 'boldly.built.llc@gmail.com';
+
+-- Self-service coach invites (owner's Team page) — same shape and token
+-- lifecycle as `invitations` above, but deliberately a separate table
+-- rather than reusing it: `invitations.client_id` is NOT NULL/UNIQUE
+-- (one invite per client), and a coach invite has no client at all — it
+-- creates a `users` row directly once accepted, the same way the client
+-- invite flow creates one via src/app/invite/[token]/actions.ts. Unique on
+-- email (not just token) so the Team page can look up "is there already a
+-- pending invite for this address" before sending a second one.
+CREATE TABLE IF NOT EXISTS coach_invitations (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  full_name TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  resent_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (now())
+);

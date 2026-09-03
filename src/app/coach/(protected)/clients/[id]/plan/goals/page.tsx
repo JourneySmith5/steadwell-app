@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { requireClientAccess } from "@/lib/dal";
 import { listGoals } from "@/lib/repo/goals";
 import { listAllocationLines } from "@/lib/repo/allocationLines";
 import { generateGoalInsights, computeGoalCompletion } from "@/lib/planCalc";
@@ -9,10 +7,8 @@ import { PlanBuilderHeader, money } from "../shared";
 import { saveGoalAllocation } from "./actions";
 
 export default async function GoalsAllocationPage(props: PageProps<"/coach/clients/[id]/plan/goals">) {
-  await requireCoach();
   const { id: clientId } = await props.params;
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  const { client } = await requireClientAccess(clientId);
 
   const [goals, allocations, insights] = await Promise.all([
     listGoals(clientId),

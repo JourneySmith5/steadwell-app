@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
+import { requireClientAccess } from "@/lib/dal";
 import { findClientById } from "@/lib/repo/clients";
 import { ensurePlanStarted } from "@/lib/plan";
 import { computeBaseline } from "@/lib/planCalc";
@@ -24,10 +23,8 @@ async function incomeStability(clientId: string): Promise<string> {
 }
 
 export default async function PlanBaselinePage(props: PageProps<"/coach/clients/[id]/plan">) {
-  await requireCoach();
   const { id: clientId } = await props.params;
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  await requireClientAccess(clientId);
 
   await ensurePlanStarted(clientId);
   const freshClient = (await findClientById(clientId))!;

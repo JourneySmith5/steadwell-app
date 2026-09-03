@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { listClients, isDeletedClient } from "@/lib/repo/clients";
+import { listCoachSideUsers } from "@/lib/repo/users";
 import { PageHeader, Card, StatusBadge, SuccessText } from "@/components/ui";
 import { STATUS_LABELS, type ClientStatus } from "@/lib/enums";
+import { requireCoach } from "@/lib/dal";
 
 export default async function CoachClientsPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string; deleted?: string }>;
 }) {
+  const user = await requireCoach();
+  const isOwner = user.role === "owner";
   const { status, deleted } = await searchParams;
   // Only trust a status value that's actually a real ClientStatus — anything
   // else in the URL (typo'd, stale link) just falls back to "show everyone"
@@ -16,8 +20,16 @@ export default async function CoachClientsPage({
 
   // A hard-deleted client's row survives as an anonymized tombstone (see
   // isDeletedClient) but shouldn't show up in a list of clients anymore —
-  // that's the whole point of deleting one.
-  const allClients = (await listClients()).filter((c) => !isDeletedClient(c));
+  // that's the whole point of deleting one. Coach sees only their own
+  // roster; owner sees everyone, with a "Coach: ..." tag per row (once
+  // more than one exists) since it's otherwise not obvious whose client
+  // is whose.
+  const [rawClients, coachUsers] = await Promise.all([
+    listClients({ coachId: isOwner ? undefined : user.id }),
+    isOwner ? listCoachSideUsers() : Promise.resolve([]),
+  ]);
+  const coachEmailById = new Map(coachUsers.map((c) => [c.id, c.email]));
+  const allClients = rawClients.filter((c) => !isDeletedClient(c));
   const clients = filterStatus ? allClients.filter((c) => c.status === filterStatus) : allClients;
 
   return (
@@ -46,6 +58,11 @@ export default async function CoachClientsPage({
                   {c.fullName}
                 </Link>
                 <p className="text-xs text-brand-slate/70">{c.email}</p>
+                {isOwner && coachUsers.length > 1 && (
+                  <p className="text-xs text-brand-slate/50">
+                    Coach: {c.coachId ? (coachEmailById.get(c.coachId) ?? "unknown") : "unassigned"}
+                  </p>
+                )}
               </div>
               <StatusBadge status={c.status as ClientStatus} />
             </li>

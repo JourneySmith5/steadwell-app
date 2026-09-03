@@ -2,7 +2,7 @@ import "server-only";
 import webpush from "web-push";
 import {
   listPushSubscriptionsForUser,
-  listPushSubscriptionsForRole,
+  listPushSubscriptionsForRoles,
   deletePushSubscriptionByEndpoint,
   type PushSubscriptionRow,
 } from "@/lib/repo/pushSubscriptions";
@@ -69,13 +69,17 @@ export async function sendPushToUser(userId: string, payload: { title: string; b
 }
 
 // Coach-facing pushes (new application, payment received) don't have a
-// single known userId to target ahead of time — this reaches every
-// subscription belonging to any coach-role user, which in practice is just
-// the one Coach account, but doesn't hardcode that assumption.
+// single known userId to target ahead of time, and are business-wide
+// events every coach-side account should hear about — this reaches every
+// subscription belonging to the owner or any coach. A specific client's
+// message thread notifications (src/lib/messages.ts) are targeted more
+// narrowly, straight to that client's assigned coach + the owner, via
+// sendPushToUser instead — not every coach needs paging for every other
+// coach's client.
 export async function sendPushToCoach(payload: { title: string; body: string; url?: string }) {
   if (!ensureConfigured()) return;
   try {
-    const subs = await listPushSubscriptionsForRole("coach");
+    const subs = await listPushSubscriptionsForRoles(["owner", "coach"]);
     await Promise.all(subs.map((sub) => sendToSubscription(sub, payload)));
   } catch (err) {
     console.error("[webPush] sendPushToCoach failed:", err);

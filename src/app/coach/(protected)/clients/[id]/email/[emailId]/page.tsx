@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import { findEmailById } from "@/lib/repo/emails";
 import { EmailEditor } from "@/components/EmailEditor";
+import { requireClientAccess } from "@/lib/dal";
 
 export default async function EmailEditPage(props: PageProps<"/coach/clients/[id]/email/[emailId]">) {
   const { id, emailId } = await props.params;
+  await requireClientAccess(id);
   const email = await findEmailById(emailId);
   if (!email || email.clientId !== id) notFound();
 

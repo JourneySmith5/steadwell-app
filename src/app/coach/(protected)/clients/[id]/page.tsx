@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
-import { findClientById } from "@/lib/repo/clients";
+import { requireClientAccess } from "@/lib/dal";
+import { listCoachSideUsers } from "@/lib/repo/users";
 import { findApplicationByClientId } from "@/lib/repo/applications";
 import { findInvitationByClientId } from "@/lib/repo/invitations";
 import { findCheckoutLinkByClientId } from "@/lib/repo/checkoutLinks";
@@ -12,7 +12,7 @@ import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { findOffboardingByClientId } from "@/lib/repo/offboarding";
 import { listStatements } from "@/lib/repo/statements";
 import { formatStatementMonth } from "@/lib/statementMonths";
-import { PageHeader, Card, StatusBadge, Button } from "@/components/ui";
+import { PageHeader, Card, StatusBadge, Button, Select } from "@/components/ui";
 import {
   PLAN_STATUS_LABELS,
   MEETING_STATUS_LABELS,
@@ -21,7 +21,7 @@ import {
   OFFBOARDING_TRIGGER_STATUSES,
   type ClientStatus,
 } from "@/lib/enums";
-import { approveClient, declineClient, resendAgreementEmail, resendInvitationEmail } from "./actions";
+import { approveClient, declineClient, resendAgreementEmail, resendInvitationEmail, reassignClientCoach } from "./actions";
 import { DeleteClientForm } from "./DeleteClientForm";
 import Link from "next/link";
 
@@ -43,10 +43,10 @@ const PLAN_BUILDER_VISIBLE_STATUSES: ClientStatus[] = [
 export default async function ClientDetailPage(props: PageProps<"/coach/clients/[id]">) {
   const { id } = await props.params;
   const { deleteMismatch } = await props.searchParams;
-  const client = await findClientById(id);
-  if (!client) notFound();
+  const { user, client } = await requireClientAccess(id);
+  const isOwner = user.role === "owner";
 
-  const [application, invitation, checkoutLink, payments, emails, timeline, meetings, subscription, offboarding, statements, messageCount, unreadMessages] =
+  const [application, invitation, checkoutLink, payments, emails, timeline, meetings, subscription, offboarding, statements, messageCount, unreadMessages, coachUsers] =
     await Promise.all([
       findApplicationByClientId(id),
       findInvitationByClientId(id),
@@ -60,8 +60,13 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
       client.userId ? listStatements(id) : Promise.resolve([]),
       client.userId ? countMessagesForClient(id) : Promise.resolve(0),
       client.userId ? countUnreadForClientThread(id, "coach") : Promise.resolve(0),
+      // Only the owner can reassign, and only coaches (not the owner
+      // itself) are valid assignment targets — see the Coach card below.
+      isOwner ? listCoachSideUsers() : Promise.resolve([]),
     ]);
   const subscriptionTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
+  const coachOnlyUsers = coachUsers.filter((u) => u.role === "coach");
+  const assignedCoach = coachUsers.find((u) => u.id === client.coachId);
 
   return (
     <div>
@@ -296,13 +301,42 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
             </Card>
           )}
 
-          {client.fullName !== "[deleted]" && (
+          {isOwner && client.fullName !== "[deleted]" && (
             <Card>
               <h2 className="font-heading text-lg text-red-800 mb-3">Danger Zone</h2>
               <DeleteClientForm clientId={client.id} fullName={client.fullName} mismatch={deleteMismatch === "1"} />
             </Card>
           )}
         </div>
+
+        {isOwner && (
+          <Card>
+            <h2 className="font-heading text-lg text-brand-dark mb-3">Coach</h2>
+            {coachOnlyUsers.length === 0 ? (
+              <p className="text-sm text-brand-slate/70">
+                No coach accounts yet — invite one from the Team page.
+              </p>
+            ) : (
+              <form action={reassignClientCoach.bind(null, client.id)}>
+                <Select name="coachId" defaultValue={client.coachId ?? ""} className="mb-3">
+                  <option value="">Unassigned</option>
+                  {coachOnlyUsers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.email}
+                      {c.isDefaultCoach ? " (default)" : ""}
+                    </option>
+                  ))}
+                </Select>
+                <Button type="submit" variant="secondary">
+                  Save
+                </Button>
+              </form>
+            )}
+            {assignedCoach && (
+              <p className="text-xs text-brand-slate/60 mt-2">Currently: {assignedCoach.email}</p>
+            )}
+          </Card>
+        )}
 
         <Card>
           <h2 className="font-heading text-lg text-brand-dark mb-3">Timeline</h2>

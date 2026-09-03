@@ -1,8 +1,7 @@
 "use server";
 
-import { notFound, redirect } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { redirect } from "next/navigation";
+import { requireClientAccess } from "@/lib/dal";
 import { createMeeting, updateMeeting, deleteMeeting, setMeetingStatus } from "@/lib/repo/meetings";
 import { findActiveDiscountCode } from "@/lib/repo/discountCodes";
 import { createEmailDraft, foundationReviewCompleteTemplate } from "@/lib/email";
@@ -11,11 +10,6 @@ import { parseOptionalText, parseOptionalNotes } from "@/lib/formHelpers";
 
 function path(clientId: string) {
   return `/coach/clients/${clientId}/meetings`;
-}
-
-async function assertClient(clientId: string) {
-  await requireCoach();
-  if (!(await findClientById(clientId))) notFound();
 }
 
 function fieldsFrom(formData: FormData) {
@@ -30,20 +24,20 @@ function fieldsFrom(formData: FormData) {
 }
 
 export async function addMeeting(clientId: string, formData: FormData) {
-  await assertClient(clientId);
+  await requireClientAccess(clientId);
   await createMeeting(clientId, fieldsFrom(formData));
   redirect(path(clientId));
 }
 
 export async function saveMeeting(clientId: string, formData: FormData) {
-  await assertClient(clientId);
+  await requireClientAccess(clientId);
   const id = String(formData.get("id") || "");
   await updateMeeting(id, fieldsFrom(formData));
   redirect(path(clientId));
 }
 
 export async function removeMeeting(clientId: string, formData: FormData) {
-  await assertClient(clientId);
+  await requireClientAccess(clientId);
   await deleteMeeting(String(formData.get("id") || ""));
   redirect(path(clientId));
 }
@@ -56,9 +50,7 @@ export async function removeMeeting(clientId: string, formData: FormData) {
 // email (§21) — the 24-hour window itself doesn't start until that Send
 // click (see setFoundationReviewEmailSentAt, called from sendEmailDraft).
 export async function markFoundationReviewCompleteAndEmailPlan(clientId: string, formData: FormData) {
-  await requireCoach();
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  const { client } = await requireClientAccess(clientId);
 
   const meetingId = String(formData.get("meetingId") || "");
   if (meetingId) await setMeetingStatus(meetingId, "completed");

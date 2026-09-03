@@ -5,6 +5,7 @@ import { getAttentionQueue, attentionQueueCount, type AttentionItem } from "@/li
 import { PageHeader, Card, Button } from "@/components/ui";
 import { STATUS_LABELS } from "@/lib/enums";
 import { runOffboardingSweepNow } from "./actions";
+import { requireCoach } from "@/lib/dal";
 
 function daysUntil(isoDate: string): number {
   return Math.max(0, Math.ceil((new Date(isoDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
@@ -32,10 +33,17 @@ function AttentionSection({ title, items }: { title: string; items: AttentionIte
 }
 
 export default async function CoachDashboardPage() {
+  const user = await requireCoach();
+  const isOwner = user.role === "owner";
+  const coachId = isOwner ? undefined : user.id;
+
+  // Offboarding and Backups are owner-only (see requireOwner's comment in
+  // dal.ts) — no point fetching that data for a coach who won't see the
+  // section at all.
   const [allClients, attention, offboardings] = await Promise.all([
-    listClients(),
-    getAttentionQueue(),
-    listActiveOffboardings(),
+    listClients({ coachId }),
+    getAttentionQueue(coachId),
+    isOwner ? listActiveOffboardings() : Promise.resolve([]),
   ]);
   // Same reasoning as the Clients list page — a hard-deleted client's
   // tombstone row shouldn't count toward or show up in the pipeline.
@@ -95,56 +103,60 @@ export default async function CoachDashboardPage() {
         <AttentionSection title="Correction Requested" items={attention.reopenedIntakes} />
       </Card>
 
-      <Card className="mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-heading text-xl text-brand-dark">Offboarding</h2>
-          <form action={runOffboardingSweepNow}>
-            <Button type="submit" variant="secondary">
-              Run Sweep Now
-            </Button>
-          </form>
-        </div>
-        <p className="text-xs text-brand-slate/60 mb-3">
-          Export status, reminder emails sent, and scheduled deletion date for every client in
-          Canceled/Graduated/Closed. No cron is wired up in this environment — this button runs
-          the same reminder + hard-delete sweep a real scheduled job would (see scripts/offboarding-sweep.ts).
-        </p>
-        {offboardings.length === 0 && <p className="text-sm text-brand-slate">No clients currently offboarding.</p>}
-        <ul className="divide-y divide-brand-pale">
-          {offboardings.map((o) => {
-            const client = offboardingClients.get(o.clientId);
-            return (
-              <li key={o.id} className="py-2 flex items-center justify-between text-sm">
-                <Link href={`/coach/clients/${o.clientId}`} className="text-brand-dark hover:underline">
-                  {client?.fullName ?? o.clientId}
-                </Link>
-                <span className="text-brand-slate text-xs">
-                  {o.exportedAt ? `Exported ${new Date(o.exportedAt).toLocaleDateString()}` : "Not exported"} ·{" "}
-                  {o.remindersSent} reminder{o.remindersSent === 1 ? "" : "s"} sent · {daysUntil(o.deletionDueAt)} days
-                  left
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </Card>
+      {isOwner && (
+        <Card className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading text-xl text-brand-dark">Offboarding</h2>
+            <form action={runOffboardingSweepNow}>
+              <Button type="submit" variant="secondary">
+                Run Sweep Now
+              </Button>
+            </form>
+          </div>
+          <p className="text-xs text-brand-slate/60 mb-3">
+            Export status, reminder emails sent, and scheduled deletion date for every client in
+            Canceled/Graduated/Closed. No cron is wired up in this environment — this button runs
+            the same reminder + hard-delete sweep a real scheduled job would (see scripts/offboarding-sweep.ts).
+          </p>
+          {offboardings.length === 0 && <p className="text-sm text-brand-slate">No clients currently offboarding.</p>}
+          <ul className="divide-y divide-brand-pale">
+            {offboardings.map((o) => {
+              const client = offboardingClients.get(o.clientId);
+              return (
+                <li key={o.id} className="py-2 flex items-center justify-between text-sm">
+                  <Link href={`/coach/clients/${o.clientId}`} className="text-brand-dark hover:underline">
+                    {client?.fullName ?? o.clientId}
+                  </Link>
+                  <span className="text-brand-slate text-xs">
+                    {o.exportedAt ? `Exported ${new Date(o.exportedAt).toLocaleDateString()}` : "Not exported"} ·{" "}
+                    {o.remindersSent} reminder{o.remindersSent === 1 ? "" : "s"} sent · {daysUntil(o.deletionDueAt)} days
+                    left
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
 
-      <Card className="mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-heading text-xl text-brand-dark">Backups</h2>
-          <a href="/coach/backup">
-            <Button type="button" variant="secondary">
-              Download Full Backup
-            </Button>
-          </a>
-        </div>
-        <p className="text-xs text-brand-slate/60">
-          Downloads every table as one JSON file — a real, working manual export, since this dev
-          environment has no automated backup schedule (same gap as no real cron for the Offboarding sweeps
-          above). It contains everything in the database, including password hashes and TOTP secrets — handle
-          the file the way you&apos;d handle the production database itself.
-        </p>
-      </Card>
+      {isOwner && (
+        <Card className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading text-xl text-brand-dark">Backups</h2>
+            <a href="/coach/backup">
+              <Button type="button" variant="secondary">
+                Download Full Backup
+              </Button>
+            </a>
+          </div>
+          <p className="text-xs text-brand-slate/60">
+            Downloads every table as one JSON file — a real, working manual export, since this dev
+            environment has no automated backup schedule (same gap as no real cron for the Offboarding sweeps
+            above). It contains everything in the database, including password hashes and TOTP secrets — handle
+            the file the way you&apos;d handle the production database itself.
+          </p>
+        </Card>
+      )}
     </div>
   );
 }

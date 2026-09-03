@@ -250,6 +250,21 @@ export const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
   canceled: "Canceled",
 };
 
-// Roles
-export const USER_ROLES = ["coach", "client"] as const;
+// Roles. "owner" and "coach" both use the /coach/* app (same login gate,
+// same 2FA requirement) — the difference is scope, not access: an owner
+// sees every client and every coach-side admin action, a coach sees only
+// clients assigned to them and can't reach the destructive/global-config
+// actions (delete client, backups, offboarding sweep, discount codes,
+// booking links, revenue reports, the Team page itself). See dal.ts's
+// requireCoach/requireOwner/requireClientAccess.
+export const USER_ROLES = ["owner", "coach", "client"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+
+// "Which side of the login gate does this role use" — every place that
+// used to branch on `role === "coach"` for that purpose (post-login
+// redirect, the coach/client role checks) needs owner routed the same way
+// coach is. Not for per-client SCOPE checks (owner vs. a specific coach's
+// own roster) — that's requireClientAccess in dal.ts.
+export function isCoachSideRole(role: UserRole): boolean {
+  return role === "coach" || role === "owner";
+}

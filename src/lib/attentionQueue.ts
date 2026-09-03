@@ -1,5 +1,5 @@
 import "server-only";
-import { listClients, findClientById } from "@/lib/repo/clients";
+import { listClients } from "@/lib/repo/clients";
 import { listPendingInvitations } from "@/lib/repo/invitations";
 import { listStalePendingPayments } from "@/lib/repo/payments";
 import { listReopenedIntakes } from "@/lib/repo/foundationIntake";
@@ -41,9 +41,16 @@ export interface AttentionQueue {
 const INVITATION_EXPIRY_WARNING_DAYS = 2;
 const STALE_PAYMENT_HOURS = 24;
 
-export async function getAttentionQueue(): Promise<AttentionQueue> {
+// Omit coachId for the owner's queue across every client; pass it to scope
+// to one coach's own assigned clients. The underlying invitations/stale
+// payments/reopened-intakes queries aren't scoped themselves (they're
+// small, whole-table scans) — instead every category below only keeps an
+// item if its client is in `byId`, which itself comes from the already
+// -scoped `clients` list, so an out-of-scope client's item is dropped the
+// same way a since-deleted client's already was.
+export async function getAttentionQueue(coachId?: string): Promise<AttentionQueue> {
   const [clients, pendingInvitations, stalePayments, reopened] = await Promise.all([
-    listClients(),
+    listClients({ coachId }),
     listPendingInvitations(),
     listStalePendingPayments(STALE_PAYMENT_HOURS),
     listReopenedIntakes(),
@@ -70,7 +77,7 @@ export async function getAttentionQueue(): Promise<AttentionQueue> {
   const incompleteInvitations: AttentionItem[] = (
     await Promise.all(
       pendingInvitations.map(async (inv) => {
-        const client = await findClientById(inv.clientId);
+        const client = byId.get(inv.clientId);
         if (!client) return null;
         const expiresInMs = new Date(inv.expiresAt).getTime() - now;
         const expired = expiresInMs <= 0;
@@ -102,7 +109,7 @@ export async function getAttentionQueue(): Promise<AttentionQueue> {
   const reopenedIntakes: AttentionItem[] = (
     await Promise.all(
       reopened.map(async (intake) => {
-        const client = await findClientById(intake.clientId);
+        const client = byId.get(intake.clientId);
         if (!client) return null;
         return {
           clientId: client.id,

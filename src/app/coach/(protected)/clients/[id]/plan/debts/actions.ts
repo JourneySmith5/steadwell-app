@@ -1,8 +1,7 @@
 "use server";
 
-import { notFound, redirect } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { redirect } from "next/navigation";
+import { requireClientAccess } from "@/lib/dal";
 import { listDebts } from "@/lib/repo/debts";
 import { upsertDebtDecision } from "@/lib/repo/debtDecisions";
 import { computePayoffTrajectory } from "@/lib/planCalc";
@@ -13,8 +12,7 @@ function path(clientId: string) {
 }
 
 export async function saveDebtDecision(clientId: string, formData: FormData) {
-  await requireCoach();
-  if (!(await findClientById(clientId))) notFound();
+  await requireClientAccess(clientId);
 
   const debtId = String(formData.get("debtId") || "");
   const debt = (await listDebts(clientId)).find((d) => d.id === debtId);

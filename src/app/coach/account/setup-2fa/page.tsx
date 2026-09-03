@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/dal";
+import { requireCoachRole } from "@/lib/dal";
 import { getOrCreatePendingTotpSecret } from "@/lib/totp";
 import { TotpSetupForm } from "@/components/TotpSetupForm";
 
 export default async function CoachSetup2FAPage() {
-  const user = await requireRole("coach");
+  const user = await requireCoachRole();
   if (user.totpEnabled) redirect("/coach");
 
   const { secret, qrDataUrl } = await getOrCreatePendingTotpSecret(user.id);

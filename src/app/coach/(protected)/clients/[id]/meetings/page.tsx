@@ -1,17 +1,13 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { requireClientAccess } from "@/lib/dal";
 import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { Card, PageHeader, Field, TextInput, TextArea, Select, Button } from "@/components/ui";
 import { MEETING_TYPES, MEETING_STATUSES, MEETING_STATUS_LABELS } from "@/lib/enums";
 import { addMeeting, saveMeeting, removeMeeting, markFoundationReviewCompleteAndEmailPlan } from "./actions";
 
 export default async function MeetingsPage(props: PageProps<"/coach/clients/[id]/meetings">) {
-  await requireCoach();
   const { id: clientId } = await props.params;
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  const { client } = await requireClientAccess(clientId);
 
   const meetings = await listMeetingsForClient(clientId);
 

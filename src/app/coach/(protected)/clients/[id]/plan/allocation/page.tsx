@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { requireClientAccess } from "@/lib/dal";
 import { computeAllocationSummary, minimumViablePayment } from "@/lib/planCalc";
 import { listAllocationLines, findEmergencyAllocation } from "@/lib/repo/allocationLines";
 import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
@@ -22,10 +20,8 @@ import {
 } from "./actions";
 
 export default async function AllocationPage(props: PageProps<"/coach/clients/[id]/plan/allocation">) {
-  await requireCoach();
   const { id: clientId } = await props.params;
-  const client = await findClientById(clientId);
-  if (!client) notFound();
+  const { client } = await requireClientAccess(clientId);
 
   const [summary, flexLines, efAllocation, ef, sinkingFunds, sinkingAllocations, debts, goals, goalAllocations] = await Promise.all([
     computeAllocationSummary(clientId),

@@ -11,6 +11,7 @@ export interface ClientRow {
   state: string;
   preferredContact: string;
   userId: string | null;
+  coachId: string | null;
   planStatus: PlanStatus;
   planHistoricalSpendingMonthly: number | null;
   planGeneralRationale: string | null;
@@ -31,6 +32,7 @@ interface ClientDbRow {
   state: string;
   preferred_contact: string;
   user_id: string | null;
+  coach_id: string | null;
   plan_status: string;
   plan_historical_spending_monthly: number | null;
   plan_general_rationale: string | null;
@@ -52,6 +54,7 @@ function fromRow(row: ClientDbRow): ClientRow {
     state: row.state,
     preferredContact: row.preferred_contact,
     userId: row.user_id,
+    coachId: row.coach_id,
     planStatus: row.plan_status as PlanStatus,
     planHistoricalSpendingMonthly: row.plan_historical_spending_monthly,
     planGeneralRationale: row.plan_general_rationale,
@@ -93,9 +96,31 @@ export async function findClientById(id: string): Promise<ClientRow | undefined>
   return row ? fromRow(row) : undefined;
 }
 
-export async function listClients(): Promise<ClientRow[]> {
-  const rows = await all<ClientDbRow>("SELECT * FROM clients ORDER BY created_at DESC");
+// coachId scopes to one coach's roster (a hired coach only ever sees their
+// own clients); omit it for the owner's "everyone" view. Filtering here
+// rather than in every caller means a caller that forgets to scope fails
+// safe toward "show nothing new" rather than silently leaking every
+// client — but callers still have to actually pass the coach's id, so
+// this isn't a substitute for the access checks in dal.ts.
+export async function listClients(opts: { coachId?: string } = {}): Promise<ClientRow[]> {
+  const rows = opts.coachId
+    ? await all<ClientDbRow>("SELECT * FROM clients WHERE coach_id = $coachId ORDER BY created_at DESC", {
+        $coachId: opts.coachId,
+      })
+    : await all<ClientDbRow>("SELECT * FROM clients ORDER BY created_at DESC");
   return rows.map(fromRow);
+}
+
+// Owner-only reassignment (see the Danger-Zone-adjacent "Coach" control on
+// the client detail page) — null unassigns, e.g. if a coach account is
+// ever removed. Also what auto-assignment on a new application calls with
+// the current default coach's id (src/app/apply/actions.ts).
+export async function setClientCoach(clientId: string, coachId: string | null): Promise<void> {
+  await run(`UPDATE clients SET coach_id = $coachId, updated_at = $now WHERE id = $id`, {
+    $id: clientId,
+    $coachId: coachId,
+    $now: nowIso(),
+  });
 }
 
 // A tombstone left by hardDeleteClient (§16's 30-day sweep, or the

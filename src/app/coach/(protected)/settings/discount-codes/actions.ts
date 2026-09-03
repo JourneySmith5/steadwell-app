@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
+import { requireOwner } from "@/lib/dal";
 import {
   setDiscountCodeEnabled,
   createDiscountCode,
@@ -34,13 +34,13 @@ function parsePercentOff(formData: FormData): number | null {
 }
 
 export async function toggleDiscountCode(id: string, enabled: boolean) {
-  await requireCoach();
+  await requireOwner();
   await setDiscountCodeEnabled(id, enabled);
   redirect(PATH);
 }
 
 export async function addDiscountCode(formData: FormData) {
-  await requireCoach();
+  await requireOwner();
   const code = normalizeCode(parseText(formData, "code", { maxLength: 40 }));
   if (!code) fail("Enter a code.");
   const percentOff = parsePercentOff(formData);
@@ -54,7 +54,7 @@ export async function addDiscountCode(formData: FormData) {
 }
 
 export async function saveDiscountCode(id: string, formData: FormData) {
-  await requireCoach();
+  await requireOwner();
   const code = normalizeCode(parseText(formData, "code", { maxLength: 40 }));
   if (!code) fail("Enter a code.");
   const percentOff = parsePercentOff(formData);
@@ -73,7 +73,7 @@ export async function saveDiscountCode(id: string, formData: FormData) {
 // No form fields: baseCode/percentOff come from the template row itself,
 // bound in on the page, so there's nothing for Coach to mistype.
 export async function generateOneTimeCode(baseCode: string, percentOff: number) {
-  await requireCoach();
+  await requireOwner();
   await generateOneTimeCodeRow(baseCode, percentOff);
   redirect(PATH);
 }
@@ -83,7 +83,7 @@ export async function generateOneTimeCode(baseCode: string, percentOff: number) 
 // Accountability subscription without waiting on the real schedule (same
 // "Run Now" pattern as Offboarding's sweep button).
 export async function runBirthdaySweepNow() {
-  await requireCoach();
+  await requireOwner();
   await runBirthdayDiscountSweep();
   redirect(PATH);
 }

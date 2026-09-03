@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
+import { requireOwner } from "@/lib/dal";
 import { runReminderSweep, runDeletionSweep } from "@/lib/offboarding";
 import { runMeetingReminderSweep } from "@/lib/meetingReminders";
 
@@ -13,7 +13,7 @@ import { runMeetingReminderSweep } from "@/lib/meetingReminders";
 // see src/lib/meetingReminders.ts) so Coach can see the whole flow work
 // without waiting on a real scheduler to exist.
 export async function runOffboardingSweepNow() {
-  await requireCoach();
+  await requireOwner();
   await runReminderSweep();
   await runDeletionSweep();
   await runMeetingReminderSweep();

@@ -82,12 +82,19 @@ export async function countUnreadForClientThread(clientId: string, readerRole: M
   return row ? Number(row.count) : 0;
 }
 
-// Coach's total unread count across every client's thread — the badge shown
-// in the Coach nav (there's only ever one coach, so no readerRole param).
-export async function countUnreadForCoach(): Promise<number> {
-  const row = await get<{ count: string }>(
-    `SELECT COUNT(*) as count FROM messages WHERE sender_role = 'client' AND read_at IS NULL`
-  );
+// Total unread count across every client thread the caller can see — the
+// badge shown in the Coach nav. Omit coachId for the owner's "everyone"
+// view; pass it to scope to one coach's own assigned clients.
+export async function countUnreadForCoach(coachId?: string): Promise<number> {
+  const row = coachId
+    ? await get<{ count: string }>(
+        `SELECT COUNT(*) as count FROM messages m JOIN clients c ON c.id = m.client_id
+         WHERE m.sender_role = 'client' AND m.read_at IS NULL AND c.coach_id = $coachId`,
+        { $coachId: coachId }
+      )
+    : await get<{ count: string }>(
+        `SELECT COUNT(*) as count FROM messages WHERE sender_role = 'client' AND read_at IS NULL`
+      );
   return row ? Number(row.count) : 0;
 }
 
@@ -100,15 +107,16 @@ export interface MessageThreadSummary {
   unreadCount: number;
 }
 
-// Coach's inbox listing (src/app/coach/messages) — one row per client who
+// Coach inbox listing (src/app/coach/messages) — one row per client who
 // has ever exchanged a message, most recently active thread first, each
 // with its own unread count and the client's name (joined in directly so
 // the page isn't doing an N+1 findClientById per row). DISTINCT ON
 // (client_id) ordered by created_at DESC picks each thread's most recent
 // message in one pass; the unread count is a correlated subquery per row,
 // which is fine at this app's scale (one coach's client list, not a
-// high-volume inbox).
-export async function listThreadSummariesForCoach(): Promise<MessageThreadSummary[]> {
+// high-volume inbox). Omit coachId for the owner's "every client" inbox;
+// pass it to scope to one coach's own assigned clients only.
+export async function listThreadSummariesForCoach(coachId?: string): Promise<MessageThreadSummary[]> {
   const rows = await all<{
     client_id: string;
     client_full_name: string;
@@ -127,9 +135,11 @@ export async function listThreadSummariesForCoach(): Promise<MessageThreadSummar
          (SELECT COUNT(*) FROM messages u WHERE u.client_id = m.client_id AND u.sender_role = 'client' AND u.read_at IS NULL) AS unread_count
        FROM messages m
        JOIN clients c ON c.id = m.client_id
+       ${coachId ? "WHERE c.coach_id = $coachId" : ""}
        ORDER BY m.client_id, m.created_at DESC
      ) threads
-     ORDER BY last_message_at DESC`
+     ORDER BY last_message_at DESC`,
+    coachId ? { $coachId: coachId } : undefined
   );
   return rows.map((row) => ({
     clientId: row.client_id,

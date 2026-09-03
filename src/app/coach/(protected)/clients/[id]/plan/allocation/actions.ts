@@ -1,8 +1,7 @@
 "use server";
 
-import { notFound, redirect } from "next/navigation";
-import { requireCoach } from "@/lib/dal";
-import { findClientById } from "@/lib/repo/clients";
+import { redirect } from "next/navigation";
+import { requireClientAccess } from "@/lib/dal";
 import {
   createFlexCategory,
   updateFlexCategory,
@@ -23,8 +22,7 @@ function path(clientId: string) {
 }
 
 async function assertClient(clientId: string) {
-  await requireCoach();
-  if (!(await findClientById(clientId))) notFound();
+  await requireClientAccess(clientId);
 }
 
 export async function addFlexCategory(clientId: string, formData: FormData) {
