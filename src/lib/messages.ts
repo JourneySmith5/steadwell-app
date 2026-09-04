@@ -74,8 +74,15 @@ export async function sendClientMessage(clientId: string, body: string, attachme
 // only, no extra email. A coach-initiated reply isn't the "I need a human
 // right now" direction a client's own message is, so it doesn't need the
 // belt-and-suspenders email channel that sendClientMessage above does.
-export async function sendCoachMessage(clientId: string, body: string): Promise<MessageRow> {
-  const message = await createMessage({ clientId, senderRole: "coach", body });
+export async function sendCoachMessage(clientId: string, body: string, attachment?: MessageAttachment): Promise<MessageRow> {
+  const message = await createMessage({
+    clientId,
+    senderRole: "coach",
+    body,
+    attachmentUrl: attachment?.url,
+    attachmentFilename: attachment?.filename,
+    attachmentContentType: attachment?.contentType,
+  });
   // Replying implies Coach has seen everything in the thread up to now,
   // even if she got here without opening the thread page first (e.g. a
   // future quick-reply-from-inbox affordance) — this keeps the unread
@@ -85,7 +92,11 @@ export async function sendCoachMessage(clientId: string, body: string): Promise<
 
   const client = await findClientById(clientId);
   if (client?.userId) {
-    await sendPushToUser(client.userId, { title: "New message from Steadwell", body, url: "/portal/messages" });
+    await sendPushToUser(client.userId, {
+      title: "New message from Steadwell",
+      body: body || `Sent an attachment: ${attachment?.filename ?? "a file"}`,
+      url: "/portal/messages",
+    });
   }
 
   return message;

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { requireClientAccess } from "@/lib/dal";
 import { listMessagesForClient, markThreadRead } from "@/lib/repo/messages";
-import { Card, PageHeader, TextArea, Button } from "@/components/ui";
+import { Card, PageHeader, TextArea, Button, ErrorText } from "@/components/ui";
 import { replyToClient } from "./actions";
 
 export default async function CoachClientMessagesPage(props: PageProps<"/coach/clients/[id]/messages">) {
   const { id: clientId } = await props.params;
   const { client } = await requireClientAccess(clientId);
+  const { error } = await props.searchParams;
 
   const messages = await listMessagesForClient(clientId);
   // Opening this thread is what "reading" it means — same idea as opening
@@ -55,9 +56,17 @@ export default async function CoachClientMessagesPage(props: PageProps<"/coach/c
           ))}
         </div>
 
+        {error && <ErrorText>{error}</ErrorText>}
+
         <form action={replyToClient.bind(null, clientId)}>
-          <TextArea name="body" rows={3} placeholder="Reply to this client…" required />
-          <div className="mt-2">
+          <TextArea name="body" rows={3} placeholder="Reply to this client…" />
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <input
+              type="file"
+              name="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+              className="text-xs text-brand-slate file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-brand-pale file:text-brand-dark file:text-xs"
+            />
             <Button type="submit">Send</Button>
           </div>
         </form>
