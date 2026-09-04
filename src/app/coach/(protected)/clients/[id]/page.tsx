@@ -60,9 +60,10 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
       client.userId ? listStatements(id) : Promise.resolve([]),
       client.userId ? countMessagesForClient(id) : Promise.resolve(0),
       client.userId ? countUnreadForClientThread(id, "coach") : Promise.resolve(0),
-      // Only the owner can reassign, and only coaches (not the owner
-      // itself) are valid assignment targets — see the Coach card below.
-      isOwner ? listCoachSideUsers() : Promise.resolve([]),
+      // Any coach-side user can reassign their own client to a colleague
+      // (see reassignClientCoach in ./actions.ts) — fetched for everyone,
+      // not just the owner, so a coach sees the same picker.
+      listCoachSideUsers(),
     ]);
   const subscriptionTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
   const coachOnlyUsers = coachUsers.filter((u) => u.role === "coach");
@@ -309,34 +310,32 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
           )}
         </div>
 
-        {isOwner && (
-          <Card>
-            <h2 className="font-heading text-lg text-brand-dark mb-3">Coach</h2>
-            {coachOnlyUsers.length === 0 ? (
-              <p className="text-sm text-brand-slate/70">
-                No coach accounts yet — invite one from the Team page.
-              </p>
-            ) : (
-              <form action={reassignClientCoach.bind(null, client.id)}>
-                <Select name="coachId" defaultValue={client.coachId ?? ""} className="mb-3">
-                  <option value="">Unassigned</option>
-                  {coachOnlyUsers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName ?? c.email}
-                      {c.isDefaultCoach ? " (default)" : ""}
-                    </option>
-                  ))}
-                </Select>
-                <Button type="submit" variant="secondary">
-                  Save
-                </Button>
-              </form>
-            )}
-            {assignedCoach && (
-              <p className="text-xs text-brand-slate/60 mt-2">Currently: {assignedCoach.fullName ?? assignedCoach.email}</p>
-            )}
-          </Card>
-        )}
+        <Card>
+          <h2 className="font-heading text-lg text-brand-dark mb-3">Coach</h2>
+          {coachOnlyUsers.length === 0 ? (
+            <p className="text-sm text-brand-slate/70">
+              No coach accounts yet — invite one from the Team page.
+            </p>
+          ) : (
+            <form action={reassignClientCoach.bind(null, client.id)}>
+              <Select name="coachId" defaultValue={client.coachId ?? ""} className="mb-3">
+                <option value="">Unassigned</option>
+                {coachOnlyUsers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.fullName ?? c.email}
+                    {c.isDefaultCoach ? " (default)" : ""}
+                  </option>
+                ))}
+              </Select>
+              <Button type="submit" variant="secondary">
+                Save
+              </Button>
+            </form>
+          )}
+          {assignedCoach && (
+            <p className="text-xs text-brand-slate/60 mt-2">Currently: {assignedCoach.fullName ?? assignedCoach.email}</p>
+          )}
+        </Card>
 
         <Card>
           <h2 className="font-heading text-lg text-brand-dark mb-3">Timeline</h2>

@@ -82,8 +82,17 @@ export async function deleteClientForever(clientId: string, formData: FormData) 
 
 // Owner-only — reassigns which coach a client belongs to (or unassigns,
 // if coachId is empty). See the Coach card on the client detail page.
+// Any coach-side user can reassign — Journey's ask: a coach should be able
+// to hand their own client off to a colleague, not just the owner.
+// requireClientAccess already confines a non-owner coach to clients
+// actually assigned to them (notFound() otherwise, see dal.ts), so this
+// can't be used to move a client that isn't the caller's in the first
+// place; there's no additional "target must be a real coach" check beyond
+// what the <Select> on the page already offers (every coach-side account,
+// including possibly the acting coach themselves — reassigning to
+// yourself is a harmless no-op).
 export async function reassignClientCoach(clientId: string, formData: FormData) {
-  await requireOwner();
+  await requireClientAccess(clientId);
   const raw = String(formData.get("coachId") ?? "").trim();
   await setClientCoach(clientId, raw === "" ? null : raw);
   redirect(`/coach/clients/${clientId}`);
