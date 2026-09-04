@@ -78,6 +78,24 @@ export async function generateOneTimeCode(baseCode: string, percentOff: number) 
   redirect(PATH);
 }
 
+// The general-purpose version of generateOneTimeCode above — Coach picks
+// both the base name and the percent off herself instead of being limited
+// to the three preset templates (FAMILY90/FRIENDS50/CHARITY100). Same
+// underlying repo function; this is just a second entry point into it that
+// doesn't require a template row to exist first, for "I want to hand
+// someone a one-off code right now" that doesn't fit any existing template.
+export async function generateCustomOneTimeCode(formData: FormData) {
+  await requireOwner();
+  const baseCode = normalizeCode(parseText(formData, "baseCode", { maxLength: 30 }));
+  if (!baseCode) fail("Enter a name for the code (e.g. VIP, HOLIDAY).");
+  if (!/^[A-Z0-9]+$/.test(baseCode)) fail("Code names can only contain letters and numbers, no spaces or symbols.");
+  const percentOff = parsePercentOff(formData);
+  if (percentOff === null) fail("Percent off must be a number between 1 and 100.");
+
+  await generateOneTimeCodeRow(baseCode, percentOff);
+  redirect(PATH);
+}
+
 // Manual trigger for the same daily sweep /api/cron/offboarding-sweep runs
 // — lets Coach see BIRTHDAY20 actually get applied to an active
 // Accountability subscription without waiting on the real schedule (same
