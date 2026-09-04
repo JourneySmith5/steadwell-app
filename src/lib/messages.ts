@@ -19,10 +19,27 @@ import { sendDirectEmail } from "@/lib/email";
 // client — plus the owner, who sees every client's messages by design.
 // Deduped since before any coach is hired (or for a client nobody's
 // assigned yet), the only recipient is the owner.
-export async function sendClientMessage(clientId: string, body: string): Promise<MessageRow> {
-  const message = await createMessage({ clientId, senderRole: "client", body });
+export interface MessageAttachment {
+  url: string;
+  filename: string;
+  contentType: string | null;
+}
+
+export async function sendClientMessage(clientId: string, body: string, attachment?: MessageAttachment): Promise<MessageRow> {
+  const message = await createMessage({
+    clientId,
+    senderRole: "client",
+    body,
+    attachmentUrl: attachment?.url,
+    attachmentFilename: attachment?.filename,
+    attachmentContentType: attachment?.contentType,
+  });
   const client = await findClientById(clientId);
   const clientName = client?.fullName ?? "A client";
+
+  // A file-only message (no caption) has an empty body — quoting "" would
+  // read oddly in an email/push, so describe the attachment by name instead.
+  const summary = body ? `"${body}"` : `an attachment: ${attachment?.filename ?? "a file"}`;
 
   const [assignedCoach, owner] = await Promise.all([
     client?.coachId ? findUserById(client.coachId) : Promise.resolve(undefined),
@@ -37,12 +54,12 @@ export async function sendClientMessage(clientId: string, body: string): Promise
         sendDirectEmail(
           recipient.email,
           `New message from ${clientName}`,
-          `${clientName} sent you a message on Steadwell:\n\n"${body}"\n\nReply from the Coach Dashboard: /coach/clients/${clientId}/messages`,
+          `${clientName} sent you ${body ? "a message" : "an attachment"} on Steadwell:\n\n${summary}\n\nReply from the Coach Dashboard: /coach/clients/${clientId}/messages`,
           "email:sent:coach-message-notification"
         ),
         sendPushToUser(recipient.id, {
           title: `New message from ${clientName}`,
-          body,
+          body: body || `Sent an attachment: ${attachment?.filename ?? "a file"}`,
           url: `/coach/clients/${clientId}/messages`,
         }),
       ])

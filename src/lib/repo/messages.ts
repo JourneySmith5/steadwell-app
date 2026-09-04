@@ -9,6 +9,9 @@ interface MessageDbRow {
   body: string;
   created_at: string;
   read_at: string | null;
+  attachment_url: string | null;
+  attachment_filename: string | null;
+  attachment_content_type: string | null;
 }
 
 export interface MessageRow {
@@ -18,6 +21,9 @@ export interface MessageRow {
   body: string;
   createdAt: string;
   readAt: string | null;
+  attachmentUrl: string | null;
+  attachmentFilename: string | null;
+  attachmentContentType: string | null;
 }
 
 function fromRow(row: MessageDbRow): MessageRow {
@@ -28,6 +34,9 @@ function fromRow(row: MessageDbRow): MessageRow {
     body: row.body,
     createdAt: row.created_at,
     readAt: row.read_at,
+    attachmentUrl: row.attachment_url,
+    attachmentFilename: row.attachment_filename,
+    attachmentContentType: row.attachment_content_type,
   };
 }
 
@@ -49,14 +58,47 @@ export async function listMessagesForClient(clientId: string): Promise<MessageRo
   return rows.map(fromRow);
 }
 
-export async function createMessage(params: { clientId: string; senderRole: MessageSenderRole; body: string }): Promise<MessageRow> {
+export async function createMessage(params: {
+  clientId: string;
+  senderRole: MessageSenderRole;
+  body: string;
+  attachmentUrl?: string | null;
+  attachmentFilename?: string | null;
+  attachmentContentType?: string | null;
+}): Promise<MessageRow> {
   const id = newId();
   await run(
-    `INSERT INTO messages (id, client_id, sender_role, body) VALUES ($id, $clientId, $senderRole, $body)`,
-    { $id: id, $clientId: params.clientId, $senderRole: params.senderRole, $body: params.body }
+    `INSERT INTO messages (id, client_id, sender_role, body, attachment_url, attachment_filename, attachment_content_type)
+     VALUES ($id, $clientId, $senderRole, $body, $attachmentUrl, $attachmentFilename, $attachmentContentType)`,
+    {
+      $id: id,
+      $clientId: params.clientId,
+      $senderRole: params.senderRole,
+      $body: params.body,
+      $attachmentUrl: params.attachmentUrl ?? null,
+      $attachmentFilename: params.attachmentFilename ?? null,
+      $attachmentContentType: params.attachmentContentType ?? null,
+    }
   );
   const row = await get<MessageDbRow>(`SELECT * FROM messages WHERE id = $id`, { $id: id });
   return fromRow(row!);
+}
+
+export async function findMessageById(id: string): Promise<MessageRow | undefined> {
+  const row = await get<MessageDbRow>(`SELECT * FROM messages WHERE id = $id`, { $id: id });
+  return row ? fromRow(row) : undefined;
+}
+
+// Every message in this client's thread that carries a file — the
+// Documents page's "sent via message" section (src/app/portal/(protected)/
+// documents/page.tsx), so a client can find something they attached weeks
+// ago without having to scroll back through the whole conversation.
+export async function listMessageAttachmentsForClient(clientId: string): Promise<MessageRow[]> {
+  const rows = await all<MessageDbRow>(
+    `SELECT * FROM messages WHERE client_id = $clientId AND attachment_url IS NOT NULL ORDER BY created_at DESC`,
+    { $clientId: clientId }
+  );
+  return rows.map(fromRow);
 }
 
 // Marks every message in this thread NOT sent by `readerRole` as read —

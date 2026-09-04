@@ -630,3 +630,19 @@ CREATE TABLE IF NOT EXISTS coach_invitations (
   resent_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (now())
 );
+
+-- Message attachments (Journey's ask: let clients attach a document to a
+-- message when needed, e.g. a photo of a letter or a screenshot, without
+-- having to go find the right Statements account/month fields for
+-- something that isn't actually a bank statement). All three nullable —
+-- most messages have no attachment. Deliberately kept on the `messages`
+-- row itself rather than a separate one-to-many attachments table: a
+-- message here only ever carries at most one file (the compose box is a
+-- single-file picker, not a bulk uploader like Statements), so a second
+-- table would just be a one-row join for no benefit. Same private-Blob-
+-- storage pattern as `statements.file_url` — see src/app/api/messages/
+-- [id]/attachment/route.ts, which mirrors src/app/api/statements/[id]/
+-- download/route.ts's ownership check.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_filename TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_content_type TEXT;

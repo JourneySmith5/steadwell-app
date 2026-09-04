@@ -29,13 +29,27 @@ export default async function CoachClientMessagesPage(props: PageProps<"/coach/c
         <div className="flex flex-col gap-3 mb-4">
           {messages.map((m) => (
             <div key={m.id} className={`max-w-[80%] ${m.senderRole === "coach" ? "self-end items-end" : "self-start items-start"} flex flex-col`}>
-              <div
-                className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                  m.senderRole === "coach" ? "bg-brand-dark text-white" : "bg-brand-pale text-brand-dark"
-                }`}
-              >
-                {m.body}
-              </div>
+              {m.body && (
+                <div
+                  className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                    m.senderRole === "coach" ? "bg-brand-dark text-white" : "bg-brand-pale text-brand-dark"
+                  }`}
+                >
+                  {m.body}
+                </div>
+              )}
+              {m.attachmentUrl && (
+                <a
+                  href={`/api/messages/${m.id}/attachment`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`rounded-lg px-3 py-2 text-sm underline hover:no-underline ${m.body ? "mt-1" : ""} ${
+                    m.senderRole === "coach" ? "bg-brand-dark/80 text-white" : "bg-brand-pale text-brand-dark"
+                  }`}
+                >
+                  📎 {m.attachmentFilename ?? "Attachment"}
+                </a>
+              )}
               <span className="text-[11px] text-brand-slate/60 mt-1">{new Date(m.createdAt).toLocaleString()}</span>
             </div>
           ))}

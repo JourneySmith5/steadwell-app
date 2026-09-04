@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { requireClient } from "@/lib/dal";
 import { listMessagesForClient, markThreadRead } from "@/lib/repo/messages";
-import { Card, PageHeader, TextArea, Button } from "@/components/ui";
+import { Card, PageHeader, TextArea, Button, ErrorText } from "@/components/ui";
 import { sendMessage } from "./actions";
 
-export default async function ClientMessagesPage() {
+export default async function ClientMessagesPage(props: { searchParams: Promise<{ error?: string }> }) {
   const user = await requireClient();
   if (!user.client) redirect("/login");
+  const { error } = await props.searchParams;
 
   const messages = await listMessagesForClient(user.client.id);
   // Same reasoning as the coach-side thread page: opening this page is what
@@ -31,21 +32,43 @@ export default async function ClientMessagesPage() {
         <div className="flex flex-col gap-3 mb-4">
           {messages.map((m) => (
             <div key={m.id} className={`max-w-[80%] ${m.senderRole === "client" ? "self-end items-end" : "self-start items-start"} flex flex-col`}>
-              <div
-                className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                  m.senderRole === "client" ? "bg-brand-dark text-white" : "bg-brand-pale text-brand-dark"
-                }`}
-              >
-                {m.body}
-              </div>
+              {m.body && (
+                <div
+                  className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                    m.senderRole === "client" ? "bg-brand-dark text-white" : "bg-brand-pale text-brand-dark"
+                  }`}
+                >
+                  {m.body}
+                </div>
+              )}
+              {m.attachmentUrl && (
+                <a
+                  href={`/api/messages/${m.id}/attachment`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`rounded-lg px-3 py-2 text-sm underline hover:no-underline ${m.body ? "mt-1" : ""} ${
+                    m.senderRole === "client" ? "bg-brand-dark/80 text-white" : "bg-brand-pale text-brand-dark"
+                  }`}
+                >
+                  📎 {m.attachmentFilename ?? "Attachment"}
+                </a>
+              )}
               <span className="text-[11px] text-brand-slate/60 mt-1">{new Date(m.createdAt).toLocaleString()}</span>
             </div>
           ))}
         </div>
 
+        {error && <ErrorText>{error}</ErrorText>}
+
         <form action={sendMessage}>
-          <TextArea name="body" rows={3} placeholder="Type a message to your coach…" required />
-          <div className="mt-2">
+          <TextArea name="body" rows={3} placeholder="Type a message to your coach…" />
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <input
+              type="file"
+              name="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+              className="text-xs text-brand-slate file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-brand-pale file:text-brand-dark file:text-xs"
+            />
             <Button type="submit">Send</Button>
           </div>
         </form>
