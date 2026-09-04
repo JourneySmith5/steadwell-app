@@ -100,15 +100,16 @@ function randomSuffix(length = 5): string {
   return s;
 }
 
-// One-time codes spawned from a "template" code (FAMILY90, FRIENDS50,
-// CHARITY100 — Coach Settings decides which codes get this button; see
-// ONE_TIME_TEMPLATE_CODES in the Discount Codes page). Each call creates a
-// brand-new, unique code good for exactly one redemption, so Coach hands
-// out a code good for exactly one person instead of toggling a shared code
-// on/off around their specific use — the old way left a real window where
-// anyone who saw FAMILY90 enabled could redeem it too. Left enabled
-// permanently since a one-time code can never be redeemed a second time
-// regardless — nothing to remember to toggle off.
+// One-time codes — called from the "One-time code" checkbox on the Add-a-
+// Code form (/coach/settings/discount-codes' actions.ts), with Coach's own
+// typed code as `baseCode`. Each call creates a brand-new, unique code good
+// for exactly one redemption, so Coach hands out a code good for exactly
+// one person instead of toggling a shared code on/off around their
+// specific use — the old way (FAMILY90/FRIENDS50/CHARITY100, retired —
+// see the schema.sql migration that hard-deletes them) left a real window
+// where anyone who saw a shared code enabled could redeem it too. Left
+// enabled permanently since a one-time code can never be redeemed a
+// second time regardless — nothing to remember to toggle off.
 export async function generateOneTimeCode(baseCode: string, percentOff: number): Promise<DiscountCodeRow> {
   let code: string | null = null;
   for (let attempt = 0; attempt < 10 && !code; attempt++) {

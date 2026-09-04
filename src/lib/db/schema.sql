@@ -196,12 +196,6 @@ CREATE TABLE IF NOT EXISTS discount_codes (
 -- DO NOTHING means this only ever inserts once — re-running it never
 -- re-enables a code Coach has since turned off.
 --
--- FAMILY100 was renamed to FAMILY90 before ever shipping to production —
--- 100% off gave the business no skin in the game from the client's side.
--- The defensive UPDATE below covers the unlikely case a deployment already
--- picked up the old seed before this change landed; it's a no-op otherwise.
-UPDATE discount_codes SET code = 'FAMILY90', percent_off = 90 WHERE code = 'FAMILY100';
---
 -- THANKYOU15 and BIRTHDAY20 are conditional/automatic codes — nothing ever
 -- types them in. THANKYOU15 auto-applies to a client's first 3
 -- Accountability billing cycles if they enroll within 24 hours of Coach
@@ -215,9 +209,11 @@ UPDATE discount_codes SET code = 'FAMILY90', percent_off = 90 WHERE code = 'FAMI
 -- the whole promotion by disabling the row — Coach never manages these two
 -- like a normal seasonal code (no reason to rename them; the app looks them
 -- up by these exact strings).
+--
+-- FAMILY90/FAMILY100 and FRIENDS50 used to be seeded here too, alongside
+-- CHARITY100 which Coach added by hand — see the "retired" migration
+-- further down for why they're gone.
 INSERT INTO discount_codes (id, code, percent_off, enabled, created_at) VALUES
-  ('seed-discount-family100', 'FAMILY90', 90, 0, now()),
-  ('seed-discount-friends50', 'FRIENDS50', 50, 0, now()),
   ('seed-discount-thankyou15', 'THANKYOU15', 15, 0, now()),
   ('seed-discount-birthday20', 'BIRTHDAY20', 20, 0, now())
 ON CONFLICT (code) DO NOTHING;
@@ -646,3 +642,18 @@ CREATE TABLE IF NOT EXISTS coach_invitations (
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_url TEXT;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_filename TEXT;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_content_type TEXT;
+
+-- Journey's ask: hard-delete FAMILY90, FRIENDS50, and CHARITY100 — not
+-- just disable them — now that Coach can generate a one-time code at will
+-- (the "One-time code" checkbox on /coach/settings/discount-codes' Add-a-
+-- Code form, see src/app/coach/(protected)/settings/discount-codes/
+-- actions.ts) makes the "shared code Coach toggles on for one person" idea
+-- these three existed for entirely unnecessary. Journey specifically
+-- didn't want these sitting in the list where an accidental Enable click
+-- would apply a 90%/50%/100%-off code to every checkout at once, not just
+-- have them disabled. The seed INSERT above no longer creates FAMILY90/
+-- FRIENDS50 either (CHARITY100 was never auto-seeded — Coach added it by
+-- hand), so once this DELETE runs once per database, this is a true
+-- one-time cleanup, not a no-op-after-first-run: nothing ever recreates
+-- these three rows again.
+DELETE FROM discount_codes WHERE code IN ('FAMILY90', 'FRIENDS50', 'CHARITY100');

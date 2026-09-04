@@ -47,11 +47,10 @@ export async function addDiscountCode(formData: FormData) {
   if (percentOff === null) fail("Percent off must be a number between 1 and 100.");
 
   // The "One-time code" checkbox reuses generateOneTimeCode instead of
-  // createDiscountCode — same repo function the three template buttons
-  // below call, just with Coach's own typed name/percent as the base
-  // instead of a fixed template. What's typed into "Code" becomes a
-  // prefix (e.g. HOLIDAY25 → HOLIDAY25-X7K2Q), not the final code, since a
-  // one-time code needs its own unique suffix.
+  // createDiscountCode — Coach's own typed name/percent becomes the base.
+  // What's typed into "Code" becomes a prefix (e.g. HOLIDAY25 →
+  // HOLIDAY25-X7K2Q), not the final code, since a one-time code needs its
+  // own unique suffix.
   if (formData.get("oneTime") === "on") {
     if (!/^[A-Z0-9]+$/.test(code)) fail("One-time code names can only contain letters and numbers, no spaces or symbols.");
     await generateOneTimeCodeRow(code, percentOff);
@@ -76,17 +75,6 @@ export async function saveDiscountCode(id: string, formData: FormData) {
   if (existing) fail(`${code} is already used by another code.`);
 
   await updateDiscountCode(id, { code, percentOff });
-  redirect(PATH);
-}
-
-// Spawns a fresh single-use code from a template (FAMILY90, FRIENDS50,
-// CHARITY100 — see ONE_TIME_TEMPLATE_CODES on the page) — the replacement
-// for toggling the shared code on/off around one specific person's use.
-// No form fields: baseCode/percentOff come from the template row itself,
-// bound in on the page, so there's nothing for Coach to mistype.
-export async function generateOneTimeCode(baseCode: string, percentOff: number) {
-  await requireOwner();
-  await generateOneTimeCodeRow(baseCode, percentOff);
   redirect(PATH);
 }
 

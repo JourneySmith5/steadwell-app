@@ -1,17 +1,9 @@
 import { requireOwner } from "@/lib/dal";
 import { listDiscountCodes } from "@/lib/repo/discountCodes";
 import { Card, PageHeader, Field, TextInput, CheckboxField, Button, ErrorText } from "@/components/ui";
-import { toggleDiscountCode, saveDiscountCode, addDiscountCode, runBirthdaySweepNow, generateOneTimeCode } from "./actions";
+import { toggleDiscountCode, saveDiscountCode, addDiscountCode, runBirthdaySweepNow } from "./actions";
 
 const AUTOMATIC_CODES = new Set(["THANKYOU15", "BIRTHDAY20"]);
-
-// Codes that spawn one-time children instead of being toggled on/off
-// directly — Journey's ask: hand each family member/friend/charity guest
-// their own single-use code instead of flipping a shared code on and
-// hoping nobody else grabs it in that window. Any code can still be
-// toggled the old way (nothing about that broke) — this just adds the
-// better option for these three.
-const ONE_TIME_TEMPLATE_CODES = new Set(["FAMILY90", "FRIENDS50", "CHARITY100"]);
 
 export default async function DiscountCodesPage(props: {
   searchParams: Promise<{ error?: string }>;
@@ -67,13 +59,6 @@ export default async function DiscountCodesPage(props: {
                     {c.enabled ? "Disable" : "Enable"}
                   </Button>
                 </form>
-                {ONE_TIME_TEMPLATE_CODES.has(c.code) && (
-                  <form action={generateOneTimeCode.bind(null, c.code, c.percentOff)}>
-                    <Button type="submit" variant="secondary" className="text-xs px-2 py-1">
-                      Generate One-Time Code
-                    </Button>
-                  </form>
-                )}
               </div>
             </li>
           ))}

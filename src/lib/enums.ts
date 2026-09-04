@@ -184,9 +184,11 @@ export const AGREEMENT_VERSION = "2026-08-28";
 
 // §9 discount codes — seeded by scripts/seed.ts, disabled by default,
 // coach toggles them on/off from /coach/settings/discount-codes.
+// FAMILY90 and FRIENDS50 used to be seeded here too — retired (see the
+// schema.sql migration that hard-deletes them, alongside CHARITY100) now
+// that Coach can generate a one-time code at will instead of toggling a
+// shared discount on for one person's use.
 export const SEED_DISCOUNT_CODES = [
-  { code: "FAMILY90", percentOff: 90 },
-  { code: "FRIENDS50", percentOff: 50 },
   { code: "THANKYOU15", percentOff: 15 },
   { code: "BIRTHDAY20", percentOff: 20 },
 ] as const;

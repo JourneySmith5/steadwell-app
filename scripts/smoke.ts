@@ -125,13 +125,22 @@ async function main() {
   await coachPage.waitForURL(clientUrl);
   console.log("   OK — approval email drafted and sent. Agreement URL:", agreementUrl);
 
-  // 5. Coach enables a discount code (§9 — disabled by default) so the
-  // checkout step below can exercise real discount-code math, not just the
-  // full-price path.
-  console.log("5. Coach enables FRIENDS50 discount code...");
+  // 5. Coach adds and enables a discount code (§9 — new codes start
+  // disabled) so the checkout step below can exercise real discount-code
+  // math, not just the full-price path. Uses the ordinary "Add a New
+  // Code" form (not the "One-time code" checkbox) — this exercises the
+  // reusable-code path a real seasonal promo would take, which is also
+  // the only kind of manually-typed code left now that FAMILY90/
+  // FRIENDS50/CHARITY100 are retired (see schema.sql).
+  console.log("5. Coach adds and enables SMOKE50 discount code...");
   await coachPage.goto(`${BASE_URL}/coach/settings/discount-codes`);
+  const addCodeForm = coachPage.locator('form:has(button:has-text("Add Code"))');
+  await addCodeForm.locator('input[name="code"]').fill("SMOKE50");
+  await addCodeForm.locator('input[name="percentOff"]').fill("50");
+  await addCodeForm.getByRole("button", { name: "Add Code" }).click();
+  await coachPage.waitForLoadState("networkidle");
   await coachPage
-    .locator("li", { hasText: "FRIENDS50" })
+    .locator("li", { hasText: "SMOKE50" })
     .getByRole("button", { name: "Enable" })
     .click();
   await coachPage.waitForLoadState("networkidle");
@@ -139,11 +148,11 @@ async function main() {
   // innerText() reflects the rendered (CSS-transformed) text, not the raw
   // DOM text — so this reads "ENABLED", not "Enabled". Match case-insensitively.
   const discountPageText = await coachPage.locator("body").innerText();
-  if (!/FRIENDS50[\s\S]*Enabled/i.test(discountPageText)) {
+  if (!/SMOKE50[\s\S]*Enabled/i.test(discountPageText)) {
     console.log("   DEBUG discount page body:", discountPageText);
-    throw new Error("FRIENDS50 did not show as Enabled after toggling");
+    throw new Error("SMOKE50 did not show as Enabled after toggling");
   }
-  console.log("   OK — FRIENDS50 enabled.");
+  console.log("   OK — SMOKE50 added and enabled.");
 
   // 6. Client (not yet an account holder) reviews and accepts the agreement,
   // then pays. Real Stripe isn't configured in this environment, so this
@@ -156,12 +165,12 @@ async function main() {
   await prospectPage.click('button:has-text("Accept & Continue to Payment")');
   await prospectPage.waitForURL(/\/agreement\/.+\/checkout$/);
 
-  await prospectPage.fill('input[name="code"]', "FRIENDS50");
+  await prospectPage.fill('input[name="code"]', "SMOKE50");
   await prospectPage.click('button:has-text("Apply")');
-  await prospectPage.waitForURL(/code=FRIENDS50/);
+  await prospectPage.waitForURL(/code=SMOKE50/);
   const checkoutText = await prospectPage.locator("body").innerText();
   if (!checkoutText.includes("$199.50")) throw new Error("Discounted total ($199.50) not shown on checkout page:\n" + checkoutText);
-  console.log("   OK — FRIENDS50 correctly discounted $399.00 to $199.50.");
+  console.log("   OK — SMOKE50 correctly discounted $399.00 to $199.50.");
 
   await prospectPage.click('button:has-text("Continue (Test Mode)")');
   await prospectPage.waitForURL(/\/checkout\/confirm/);
