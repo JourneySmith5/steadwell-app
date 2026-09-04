@@ -46,6 +46,18 @@ export async function addDiscountCode(formData: FormData) {
   const percentOff = parsePercentOff(formData);
   if (percentOff === null) fail("Percent off must be a number between 1 and 100.");
 
+  // The "One-time code" checkbox reuses generateOneTimeCode instead of
+  // createDiscountCode — same repo function the three template buttons
+  // below call, just with Coach's own typed name/percent as the base
+  // instead of a fixed template. What's typed into "Code" becomes a
+  // prefix (e.g. HOLIDAY25 → HOLIDAY25-X7K2Q), not the final code, since a
+  // one-time code needs its own unique suffix.
+  if (formData.get("oneTime") === "on") {
+    if (!/^[A-Z0-9]+$/.test(code)) fail("One-time code names can only contain letters and numbers, no spaces or symbols.");
+    await generateOneTimeCodeRow(code, percentOff);
+    redirect(PATH);
+  }
+
   const existing = await findDiscountCodeByCode(code);
   if (existing) fail(`${code} already exists — edit it below instead of adding it again.`);
 
@@ -74,24 +86,6 @@ export async function saveDiscountCode(id: string, formData: FormData) {
 // bound in on the page, so there's nothing for Coach to mistype.
 export async function generateOneTimeCode(baseCode: string, percentOff: number) {
   await requireOwner();
-  await generateOneTimeCodeRow(baseCode, percentOff);
-  redirect(PATH);
-}
-
-// The general-purpose version of generateOneTimeCode above — Coach picks
-// both the base name and the percent off herself instead of being limited
-// to the three preset templates (FAMILY90/FRIENDS50/CHARITY100). Same
-// underlying repo function; this is just a second entry point into it that
-// doesn't require a template row to exist first, for "I want to hand
-// someone a one-off code right now" that doesn't fit any existing template.
-export async function generateCustomOneTimeCode(formData: FormData) {
-  await requireOwner();
-  const baseCode = normalizeCode(parseText(formData, "baseCode", { maxLength: 30 }));
-  if (!baseCode) fail("Enter a name for the code (e.g. VIP, HOLIDAY).");
-  if (!/^[A-Z0-9]+$/.test(baseCode)) fail("Code names can only contain letters and numbers, no spaces or symbols.");
-  const percentOff = parsePercentOff(formData);
-  if (percentOff === null) fail("Percent off must be a number between 1 and 100.");
-
   await generateOneTimeCodeRow(baseCode, percentOff);
   redirect(PATH);
 }

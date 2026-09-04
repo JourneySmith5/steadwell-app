@@ -1,14 +1,7 @@
 import { requireOwner } from "@/lib/dal";
 import { listDiscountCodes } from "@/lib/repo/discountCodes";
-import { Card, PageHeader, Field, TextInput, Button, ErrorText } from "@/components/ui";
-import {
-  toggleDiscountCode,
-  saveDiscountCode,
-  addDiscountCode,
-  runBirthdaySweepNow,
-  generateOneTimeCode,
-  generateCustomOneTimeCode,
-} from "./actions";
+import { Card, PageHeader, Field, TextInput, CheckboxField, Button, ErrorText } from "@/components/ui";
+import { toggleDiscountCode, saveDiscountCode, addDiscountCode, runBirthdaySweepNow, generateOneTimeCode } from "./actions";
 
 const AUTOMATIC_CODES = new Set(["THANKYOU15", "BIRTHDAY20"]);
 
@@ -87,27 +80,6 @@ export default async function DiscountCodesPage(props: {
         </ul>
       </Card>
 
-      <Card className="mb-6">
-        <h2 className="font-heading text-lg text-brand-dark mb-1">Generate a One-Time Code</h2>
-        <p className="text-xs text-brand-slate/60 mb-3">
-          Creates a brand-new code good for exactly one redemption, at whatever discount you choose —
-          for a one-off situation that doesn&apos;t fit Family/Friends/Charity below. Steadwell adds a
-          random suffix to the name you give it, so it&apos;s always unique. Give the resulting code to
-          one person only; it stops working the moment they use it, nothing to remember to toggle off.
-        </p>
-        <form action={generateCustomOneTimeCode} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-          <Field label="Code name">
-            <TextInput name="baseCode" required maxLength={30} placeholder="e.g. VIP, HOLIDAY" className="uppercase" />
-          </Field>
-          <Field label="Percent off">
-            <TextInput name="percentOff" type="number" min={1} max={100} required placeholder="25" />
-          </Field>
-          <div>
-            <Button type="submit">Generate Code</Button>
-          </div>
-        </form>
-      </Card>
-
       {oneTimeCodes.length > 0 && (
         <Card className="mb-6">
           <h2 className="font-heading text-lg text-brand-dark mb-1">One-Time Codes</h2>
@@ -152,7 +124,7 @@ export default async function DiscountCodesPage(props: {
 
       <Card>
         <h2 className="font-heading text-lg text-brand-dark mb-3">Add a New Code</h2>
-        <form action={addDiscountCode} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <form action={addDiscountCode} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-1">
           <Field label="Code">
             <TextInput name="code" required maxLength={40} placeholder="e.g. HOLIDAY25" className="uppercase" />
           </Field>
@@ -161,6 +133,18 @@ export default async function DiscountCodesPage(props: {
           </Field>
           <div>
             <Button type="submit">Add Code</Button>
+          </div>
+          <div className="sm:col-span-3">
+            <CheckboxField
+              name="oneTime"
+              label={
+                <>
+                  One-time code — Steadwell adds a random suffix to make it unique (e.g. <span className="font-mono">HOLIDAY25-X7K2Q</span>),
+                  turns it on immediately, and it stops working after its single use. Leave unchecked for an ordinary reusable code
+                  (added disabled, toggle it on when ready).
+                </>
+              }
+            />
           </div>
         </form>
       </Card>
