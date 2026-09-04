@@ -28,7 +28,7 @@ export default async function CoachClientsPage({
     listClients({ coachId: isOwner ? undefined : user.id }),
     isOwner ? listCoachSideUsers() : Promise.resolve([]),
   ]);
-  const coachEmailById = new Map(coachUsers.map((c) => [c.id, c.email]));
+  const coachNameById = new Map(coachUsers.map((c) => [c.id, c.fullName ?? c.email]));
   const allClients = rawClients.filter((c) => !isDeletedClient(c));
   const clients = filterStatus ? allClients.filter((c) => c.status === filterStatus) : allClients;
 
@@ -60,7 +60,7 @@ export default async function CoachClientsPage({
                 <p className="text-xs text-brand-slate/70">{c.email}</p>
                 {isOwner && coachUsers.length > 1 && (
                   <p className="text-xs text-brand-slate/50">
-                    Coach: {c.coachId ? (coachEmailById.get(c.coachId) ?? "unknown") : "unassigned"}
+                    Coach: {c.coachId ? (coachNameById.get(c.coachId) ?? "unknown") : "unassigned"}
                   </p>
                 )}
               </div>

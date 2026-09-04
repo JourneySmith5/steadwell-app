@@ -37,6 +37,7 @@ export async function acceptCoachInvitation(
   // straight to 2FA setup.
   const user = await createUser({
     email: invitation.email,
+    fullName: invitation.fullName,
     passwordHash,
     role: "coach",
     emailVerifyToken: "invite-link-already-verified-ownership",

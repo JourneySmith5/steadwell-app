@@ -657,3 +657,15 @@ ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_content_type TEXT;
 -- one-time cleanup, not a no-op-after-first-run: nothing ever recreates
 -- these three rows again.
 DELETE FROM discount_codes WHERE code IN ('FAMILY90', 'FRIENDS50', 'CHARITY100');
+
+-- Journey's ask: the Team page (/coach/team) was listing owner/coach
+-- accounts by email — there was simply nowhere to store a name. A coach
+-- invite has always collected a full name (coach_invitations.full_name),
+-- but acceptCoachInvitation never carried it over onto the users row it
+-- creates, and the owner account (created before "owner" as a concept
+-- existed) never had anywhere to enter one either. Nullable: existing
+-- accounts show their email until Journey sets a name for them (a new
+-- inline "Name" field on the Team page — see setUserFullName in
+-- src/lib/repo/users.ts); every new coach invite now populates it
+-- automatically on accept.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;

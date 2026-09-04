@@ -322,7 +322,7 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                   <option value="">Unassigned</option>
                   {coachOnlyUsers.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.email}
+                      {c.fullName ?? c.email}
                       {c.isDefaultCoach ? " (default)" : ""}
                     </option>
                   ))}
@@ -333,7 +333,7 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
               </form>
             )}
             {assignedCoach && (
-              <p className="text-xs text-brand-slate/60 mt-2">Currently: {assignedCoach.email}</p>
+              <p className="text-xs text-brand-slate/60 mt-2">Currently: {assignedCoach.fullName ?? assignedCoach.email}</p>
             )}
           </Card>
         )}

@@ -2,7 +2,7 @@ import { requireOwner } from "@/lib/dal";
 import { listCoachSideUsers } from "@/lib/repo/users";
 import { listPendingCoachInvitations } from "@/lib/repo/coachInvitations";
 import { Card, PageHeader, Field, TextInput, Button, ErrorText } from "@/components/ui";
-import { inviteCoach, resendCoachInviteAction, setDefaultCoachAction } from "./actions";
+import { inviteCoach, resendCoachInviteAction, setDefaultCoachAction, updateUserNameAction } from "./actions";
 
 export default async function TeamPage(props: { searchParams: Promise<{ error?: string }> }) {
   await requireOwner();
@@ -24,21 +24,35 @@ export default async function TeamPage(props: { searchParams: Promise<{ error?: 
       <Card className="mb-6 p-0 overflow-hidden">
         <ul className="divide-y divide-brand-pale">
           {users.map((u) => (
-            <li key={u.id} className="px-6 py-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm text-brand-dark font-medium">{u.email}</p>
-                <p className="text-xs text-brand-slate/60 uppercase tracking-wide">
-                  {u.role === "owner" ? "Owner" : "Coach"}
-                  {u.isDefaultCoach && " · Default Coach"}
-                </p>
+            <li key={u.id} className="px-6 py-4">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div>
+                  <p className="text-sm text-brand-dark font-medium">{u.fullName ?? u.email}</p>
+                  {u.fullName && <p className="text-xs text-brand-slate/60">{u.email}</p>}
+                  <p className="text-xs text-brand-slate/60 uppercase tracking-wide mt-0.5">
+                    {u.role === "owner" ? "Owner" : "Coach"}
+                    {u.isDefaultCoach && " · Default Coach"}
+                  </p>
+                </div>
+                {u.role === "coach" && !u.isDefaultCoach && (
+                  <form action={setDefaultCoachAction.bind(null, u.id)}>
+                    <Button type="submit" variant="secondary" className="text-xs px-2 py-1">
+                      Make Default Coach
+                    </Button>
+                  </form>
+                )}
               </div>
-              {u.role === "coach" && !u.isDefaultCoach && (
-                <form action={setDefaultCoachAction.bind(null, u.id)}>
-                  <Button type="submit" variant="secondary" className="text-xs px-2 py-1">
-                    Make Default Coach
-                  </Button>
-                </form>
-              )}
+              <form action={updateUserNameAction.bind(null, u.id)} className="flex items-center gap-2">
+                <TextInput
+                  name="fullName"
+                  defaultValue={u.fullName ?? ""}
+                  placeholder="Set a name — e.g. Jordan Lee"
+                  className="text-sm max-w-xs"
+                />
+                <Button type="submit" variant="secondary" className="text-xs px-2 py-1 shrink-0">
+                  {u.fullName ? "Update Name" : "Set Name"}
+                </Button>
+              </form>
             </li>
           ))}
         </ul>

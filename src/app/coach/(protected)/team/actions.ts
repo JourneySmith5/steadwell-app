@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/dal";
-import { findUserByEmail, setDefaultCoach } from "@/lib/repo/users";
+import { findUserByEmail, setDefaultCoach, setUserFullName } from "@/lib/repo/users";
 import {
   createCoachInvitation,
   findCoachInvitationByEmail,
@@ -75,5 +75,18 @@ export async function resendCoachInviteAction(invitationId: string) {
 export async function setDefaultCoachAction(userId: string) {
   await requireOwner();
   await setDefaultCoach(userId);
+  redirect(PATH);
+}
+
+// Inline "Name" edit on each roster row — covers the owner account (never
+// collected a name at signup) and lets Journey correct a coach's name if
+// needed. A new coach invite populates this automatically on accept
+// (acceptCoachInvitation, src/app/invite/coach/[token]/actions.ts); this
+// is the manual path for everyone else.
+export async function updateUserNameAction(userId: string, formData: FormData) {
+  await requireOwner();
+  const fullName = parseText(formData, "fullName", { maxLength: 200 });
+  if (!fullName) fail("Enter a name.");
+  await setUserFullName(userId, fullName);
   redirect(PATH);
 }

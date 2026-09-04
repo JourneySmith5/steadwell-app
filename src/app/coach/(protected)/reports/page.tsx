@@ -27,7 +27,7 @@ export default async function ReportsPage() {
   // rather than only listing coaches who already have revenue.
   const revenueByCoachId = new Map(revenueByCoach.map((r) => [r.coachId, r]));
   const coachRows = coachUsers.map((u) => ({
-    label: u.email,
+    label: u.fullName ?? u.email,
     ...(revenueByCoachId.get(u.id) ?? {
       foundationCollectedCents: 0,
       foundationPaidCount: 0,

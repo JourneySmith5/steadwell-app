@@ -4,6 +4,7 @@ import type { UserRole } from "@/lib/enums";
 export interface UserRow {
   id: string;
   email: string;
+  fullName: string | null;
   passwordHash: string;
   role: UserRole;
   emailVerified: boolean;
@@ -21,6 +22,7 @@ export interface UserRow {
 interface UserDbRow {
   id: string;
   email: string;
+  full_name: string | null;
   password_hash: string;
   role: string;
   email_verified: number;
@@ -39,6 +41,7 @@ function fromRow(row: UserDbRow): UserRow {
   return {
     id: row.id,
     email: row.email,
+    fullName: row.full_name,
     passwordHash: row.password_hash,
     role: row.role as UserRole,
     emailVerified: !!row.email_verified,
@@ -116,6 +119,7 @@ export async function findUserByPasswordResetToken(token: string): Promise<UserR
 
 export async function createUser(params: {
   email: string;
+  fullName?: string | null;
   passwordHash: string;
   role: UserRole;
   emailVerifyToken: string;
@@ -124,11 +128,12 @@ export async function createUser(params: {
   const id = newId();
   const now = nowIso();
   await run(
-    `INSERT INTO users (id, email, password_hash, role, email_verify_token, email_verify_expires_at, created_at, updated_at)
-     VALUES ($id, $email, $passwordHash, $role, $token, $expires, $now, $now)`,
+    `INSERT INTO users (id, email, full_name, password_hash, role, email_verify_token, email_verify_expires_at, created_at, updated_at)
+     VALUES ($id, $email, $fullName, $passwordHash, $role, $token, $expires, $now, $now)`,
     {
       $id: id,
       $email: params.email.toLowerCase(),
+      $fullName: params.fullName ?? null,
       $passwordHash: params.passwordHash,
       $role: params.role,
       $token: params.emailVerifyToken,
@@ -137,6 +142,20 @@ export async function createUser(params: {
     }
   );
   return (await findUserById(id))!;
+}
+
+// Team page's inline name edit (owner-only, /coach/team) — lets Journey
+// set her own name (no signup flow ever collected one for the owner
+// account) and fix a coach's name if needed. New coach invites populate
+// this from the invitation automatically (see acceptCoachInvitation in
+// src/app/invite/coach/[token]/actions.ts); this is the manual fallback/
+// override for everyone else.
+export async function setUserFullName(userId: string, fullName: string): Promise<void> {
+  await run(`UPDATE users SET full_name = $fullName, updated_at = $now WHERE id = $id`, {
+    $id: userId,
+    $fullName: fullName,
+    $now: nowIso(),
+  });
 }
 
 export async function markEmailVerified(userId: string) {
