@@ -1,7 +1,7 @@
 {
   "name": "Steadwell",
   "short_name": "Steadwell",
-  "description": "Personal financial coaching, built around your first real clients.",
+  "description": "A steady, judgment-free place to get your finances on track — with a real coach in your corner.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F3F3F1",

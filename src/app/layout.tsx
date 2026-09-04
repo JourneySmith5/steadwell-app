@@ -12,7 +12,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Steadwell",
-  description: "Financial coaching, built around your first real clients.",
+  description: "A steady, judgment-free place to get your finances on track — with a real coach in your corner.",
   manifest: "/manifest.json",
   appleWebApp: {
     // Enables "Add to Home Screen" as a real installed app rather than a
