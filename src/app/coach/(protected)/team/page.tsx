@@ -2,7 +2,13 @@ import { requireOwner } from "@/lib/dal";
 import { listCoachSideUsers } from "@/lib/repo/users";
 import { listPendingCoachInvitations } from "@/lib/repo/coachInvitations";
 import { Card, PageHeader, Field, TextInput, Button, ErrorText } from "@/components/ui";
-import { inviteCoach, resendCoachInviteAction, setDefaultCoachAction, updateUserNameAction } from "./actions";
+import {
+  inviteCoach,
+  resendCoachInviteAction,
+  setDefaultCoachAction,
+  updateUserNameAction,
+  updateUserCommissionPercentAction,
+} from "./actions";
 
 export default async function TeamPage(props: { searchParams: Promise<{ error?: string }> }) {
   await requireOwner();
@@ -32,6 +38,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ error?: 
                   <p className="text-xs text-brand-slate/60 uppercase tracking-wide mt-0.5">
                     {u.role === "owner" ? "Owner" : "Coach"}
                     {u.isDefaultCoach && " · Default Coach"}
+                    {u.role === "coach" && u.commissionPercent !== null && ` · ${u.commissionPercent}% commission`}
                   </p>
                 </div>
                 {u.role === "coach" && !u.isDefaultCoach && (
@@ -42,7 +49,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ error?: 
                   </form>
                 )}
               </div>
-              <form action={updateUserNameAction.bind(null, u.id)} className="flex items-center gap-2">
+              <form action={updateUserNameAction.bind(null, u.id)} className="flex items-center gap-2 mb-2">
                 <TextInput
                   name="fullName"
                   defaultValue={u.fullName ?? ""}
@@ -53,6 +60,22 @@ export default async function TeamPage(props: { searchParams: Promise<{ error?: 
                   {u.fullName ? "Update Name" : "Set Name"}
                 </Button>
               </form>
+              {u.role === "coach" && (
+                <form action={updateUserCommissionPercentAction.bind(null, u.id)} className="flex items-center gap-2">
+                  <TextInput
+                    name="commissionPercent"
+                    type="number"
+                    min={0}
+                    max={100}
+                    defaultValue={u.commissionPercent ?? ""}
+                    placeholder="Commission % — e.g. 50"
+                    className="text-sm max-w-xs"
+                  />
+                  <Button type="submit" variant="secondary" className="text-xs px-2 py-1 shrink-0">
+                    {u.commissionPercent !== null ? "Update %" : "Set %"}
+                  </Button>
+                </form>
+              )}
             </li>
           ))}
         </ul>
@@ -96,7 +119,10 @@ export default async function TeamPage(props: { searchParams: Promise<{ error?: 
           <Field label="Email">
             <TextInput type="email" name="email" required placeholder="jordan@example.com" />
           </Field>
-          <div className="sm:col-span-2">
+          <Field label="Commission %" hint="Their 1099 cut of what their clients pay — used on their Billing page to work out what they can invoice you for.">
+            <TextInput type="number" name="commissionPercent" min={0} max={100} required placeholder="e.g. 50" />
+          </Field>
+          <div>
             <Button type="submit">Send Invitation</Button>
           </div>
         </form>

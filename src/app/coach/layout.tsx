@@ -17,6 +17,9 @@ export default async function CoachLayout({ children }: LayoutProps<"/coach">) {
     { href: "/coach", label: "Dashboard" },
     { href: "/coach/clients", label: "Clients" },
     { href: "/coach/messages", label: "Messages", badge: unreadMessages },
+    // Every coach-side user, not just the owner — this is a coach's own
+    // self-service 1099 commission invoicing, not business-wide config.
+    { href: "/coach/billing", label: "Billing" },
     // Owner-only: global config, revenue, and the Team roster — a hired
     // coach doesn't manage pricing/booking links or see business numbers,
     // and requireOwner() enforces this server-side too if they typed the

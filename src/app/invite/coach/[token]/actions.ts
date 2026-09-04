@@ -38,6 +38,7 @@ export async function acceptCoachInvitation(
   const user = await createUser({
     email: invitation.email,
     fullName: invitation.fullName,
+    commissionPercent: invitation.commissionPercent,
     passwordHash,
     role: "coach",
     emailVerifyToken: "invite-link-already-verified-ownership",

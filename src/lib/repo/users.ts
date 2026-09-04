@@ -17,6 +17,7 @@ export interface UserRow {
   failedLoginAttempts: number;
   lockedUntil: string | null;
   isDefaultCoach: boolean;
+  commissionPercent: number | null;
 }
 
 interface UserDbRow {
@@ -24,6 +25,7 @@ interface UserDbRow {
   email: string;
   full_name: string | null;
   password_hash: string;
+  commission_percent: number | null;
   role: string;
   email_verified: number;
   email_verify_token: string | null;
@@ -54,6 +56,7 @@ function fromRow(row: UserDbRow): UserRow {
     failedLoginAttempts: row.failed_login_attempts,
     lockedUntil: row.locked_until,
     isDefaultCoach: !!row.is_default_coach,
+    commissionPercent: row.commission_percent,
   };
 }
 
@@ -120,6 +123,7 @@ export async function findUserByPasswordResetToken(token: string): Promise<UserR
 export async function createUser(params: {
   email: string;
   fullName?: string | null;
+  commissionPercent?: number | null;
   passwordHash: string;
   role: UserRole;
   emailVerifyToken: string;
@@ -128,12 +132,13 @@ export async function createUser(params: {
   const id = newId();
   const now = nowIso();
   await run(
-    `INSERT INTO users (id, email, full_name, password_hash, role, email_verify_token, email_verify_expires_at, created_at, updated_at)
-     VALUES ($id, $email, $fullName, $passwordHash, $role, $token, $expires, $now, $now)`,
+    `INSERT INTO users (id, email, full_name, commission_percent, password_hash, role, email_verify_token, email_verify_expires_at, created_at, updated_at)
+     VALUES ($id, $email, $fullName, $commissionPercent, $passwordHash, $role, $token, $expires, $now, $now)`,
     {
       $id: id,
       $email: params.email.toLowerCase(),
       $fullName: params.fullName ?? null,
+      $commissionPercent: params.commissionPercent ?? null,
       $passwordHash: params.passwordHash,
       $role: params.role,
       $token: params.emailVerifyToken,
@@ -154,6 +159,19 @@ export async function setUserFullName(userId: string, fullName: string): Promise
   await run(`UPDATE users SET full_name = $fullName, updated_at = $now WHERE id = $id`, {
     $id: userId,
     $fullName: fullName,
+    $now: nowIso(),
+  });
+}
+
+// Owner-only, Team page inline "Set %"/"Update %" — a hired coach's 1099
+// commission rate, used by /coach/billing to compute what they're owed.
+// Set at invite time going forward (required on the Invite Coach form);
+// this is the fallback/override for a coach invited before that, or to
+// change someone's rate later.
+export async function setUserCommissionPercent(userId: string, commissionPercent: number): Promise<void> {
+  await run(`UPDATE users SET commission_percent = $commissionPercent, updated_at = $now WHERE id = $id`, {
+    $id: userId,
+    $commissionPercent: commissionPercent,
     $now: nowIso(),
   });
 }

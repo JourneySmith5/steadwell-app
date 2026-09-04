@@ -4,6 +4,7 @@ import { findPaymentByCheckoutSessionId } from "@/lib/repo/payments";
 import { fulfillFoundationPayment } from "@/lib/checkout";
 import { fulfillAccountabilityEnrollment } from "@/lib/accountability";
 import { findSubscriptionByStripeId, setSubscriptionStatus } from "@/lib/repo/subscriptions";
+import { recordAccountabilityPayment } from "@/lib/repo/accountabilityPayments";
 import { setClientStatus } from "@/lib/status";
 import type { SubscriptionStatus } from "@/lib/enums";
 
@@ -74,6 +75,42 @@ export async function POST(req: Request) {
     if (local) {
       const status: SubscriptionStatus = sub.status === "active" ? "active" : sub.status === "past_due" ? "past_due" : "canceled";
       await setSubscriptionStatus(local.clientId, status);
+    }
+  }
+
+  // The real Accountability revenue ledger a coach's /coach/billing invoice
+  // is computed from (Journey's ask: a coach only gets paid for a month a
+  // client actually paid for, not a live-subscription projection — see
+  // schema.sql's comment on accountability_payments). Fires once for the
+  // very first payment at checkout and once per renewal after that;
+  // recordAccountabilityPayment is idempotent on the invoice's own id, so a
+  // Stripe retry of an event this app already processed can't double-count
+  // it. A failed renewal fires invoice.payment_failed instead — deliberately
+  // not handled here, since nothing should be recorded (or billed to a
+  // coach) for a charge that didn't actually collect.
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object;
+    // This Stripe API version nests the generating subscription under
+    // parent.subscription_details rather than a top-level invoice.subscription
+    // field (that field was removed) — found by checking node_modules/stripe's
+    // own .d.ts for the pinned SDK version rather than assuming the older shape.
+    const subscriptionDetails = invoice.parent?.type === "subscription_details" ? invoice.parent.subscription_details : null;
+    const stripeSubscriptionId =
+      typeof subscriptionDetails?.subscription === "string"
+        ? subscriptionDetails.subscription
+        : (subscriptionDetails?.subscription?.id ?? null);
+    if (stripeSubscriptionId) {
+      const local = await findSubscriptionByStripeId(stripeSubscriptionId);
+      if (local) {
+        const paidAtSeconds = invoice.status_transitions?.paid_at ?? invoice.created;
+        await recordAccountabilityPayment({
+          clientId: local.clientId,
+          subscriptionId: local.id,
+          amountCents: invoice.amount_paid,
+          stripeInvoiceId: invoice.id,
+          paidAt: new Date(paidAtSeconds * 1000).toISOString(),
+        });
+      }
     }
   }
 

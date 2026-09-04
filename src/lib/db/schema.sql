@@ -669,3 +669,78 @@ DELETE FROM discount_codes WHERE code IN ('FAMILY90', 'FRIENDS50', 'CHARITY100')
 -- src/lib/repo/users.ts); every new coach invite now populates it
 -- automatically on accept.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;
+
+-- 1099 coach commission billing (Journey's ask: a hired coach is a 1099
+-- contractor who needs a convenient way to bill Steadwell for their cut of
+-- what their clients actually paid). Four pieces:
+--
+-- 1. Each coach's cut, set by the owner ("assigned at the owner level at
+--    coach account creation" — required on the Team page's Invite Coach
+--    form going forward; nullable here so an already-invited coach, or the
+--    owner's own row, which is never paid a commission, isn't forced to
+--    have one). coach_invitations carries it from invite to acceptance the
+--    same way full_name does (see acceptCoachInvitation).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS commission_percent INTEGER;
+ALTER TABLE coach_invitations ADD COLUMN IF NOT EXISTS commission_percent INTEGER;
+--
+-- 2. A real ledger of Accountability payments actually collected — the gap
+--    called out in src/lib/repo/reports.ts's file header (no invoice.paid/
+--    invoice.payment_succeeded handling, so no local record of recurring
+--    revenue over time) matters here specifically: Journey was explicit
+--    that a coach only gets paid for a month a client actually paid for,
+--    not a live-subscription projection. One row per successful charge —
+--    the real Stripe webhook (invoice.payment_succeeded, see
+--    src/app/api/webhooks/stripe/route.ts) inserts one per renewal,
+--    deduplicated on stripe_invoice_id; test mode (no Stripe configured)
+--    inserts exactly one at enrollment, since there's no monthly billing
+--    clock to simulate locally beyond that — see the comment in
+--    fulfillAccountabilityEnrollment, src/lib/accountability.ts.
+CREATE TABLE IF NOT EXISTS accountability_payments (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL REFERENCES clients(id),
+  subscription_id TEXT NOT NULL REFERENCES subscriptions(id),
+  amount_cents INTEGER NOT NULL,
+  stripe_invoice_id TEXT UNIQUE,
+  paid_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS idx_accountability_payments_client ON accountability_payments(client_id);
+--
+-- 3. The invoice itself — a coach's self-generated bill against whatever
+--    of their clients' paid Foundation fees and Accountability charges
+--    hasn't been invoiced yet (see coach_invoice_items below for how "not
+--    yet invoiced" is enforced). commission_percent is snapshotted onto
+--    the invoice at generation time so a later change to the coach's rate
+--    never rewrites an already-generated invoice's numbers.
+CREATE TABLE IF NOT EXISTS coach_invoices (
+  id TEXT PRIMARY KEY,
+  coach_id TEXT NOT NULL REFERENCES users(id),
+  commission_percent INTEGER NOT NULL,
+  foundation_cents INTEGER NOT NULL,
+  accountability_cents INTEGER NOT NULL,
+  total_cents INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  paid_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS idx_coach_invoices_coach ON coach_invoices(coach_id);
+--
+-- 4. One line item per payment/charge folded into an invoice — both the
+--    itemized breakdown the generated PDF prints and, via the unique index
+--    on (source_type, source_id), the mechanism that makes a given
+--    Foundation payment or Accountability charge impossible to bill twice
+--    across two different invoices: generating an invoice only ever
+--    selects payments/charges with no existing coach_invoice_items row.
+CREATE TABLE IF NOT EXISTS coach_invoice_items (
+  id TEXT PRIMARY KEY,
+  coach_invoice_id TEXT NOT NULL REFERENCES coach_invoices(id),
+  source_type TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  client_id TEXT NOT NULL REFERENCES clients(id),
+  gross_cents INTEGER NOT NULL,
+  commission_cents INTEGER NOT NULL,
+  paid_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_invoice_items_source ON coach_invoice_items(source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_coach_invoice_items_invoice ON coach_invoice_items(coach_invoice_id);

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/dal";
-import { findUserByEmail, setDefaultCoach, setUserFullName } from "@/lib/repo/users";
+import { findUserByEmail, setDefaultCoach, setUserFullName, setUserCommissionPercent } from "@/lib/repo/users";
 import {
   createCoachInvitation,
   findCoachInvitationByEmail,
@@ -23,6 +23,18 @@ const inviteSchema = z.object({
   fullName: z.string().min(2, "Enter the coach's full name."),
   email: z.email("Enter a valid email."),
 });
+
+// Same hand-rolled shape as parsePercentOff in the Discount Codes actions
+// (src/app/coach/(protected)/settings/discount-codes/actions.ts) rather
+// than a zod field — a whole-number 0-100 is simpler to validate directly
+// than to fight zod's coercion error-message API for.
+function parseCommissionPercent(formData: FormData): number | null {
+  const raw = Number(formData.get("commissionPercent"));
+  if (!Number.isFinite(raw)) return null;
+  const rounded = Math.round(raw);
+  if (rounded < 0 || rounded > 100) return null;
+  return rounded;
+}
 
 async function sendInviteEmail(email: string, fullName: string, token: string) {
   const inviteUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/invite/coach/${token}`;
@@ -44,6 +56,12 @@ export async function inviteCoach(formData: FormData) {
   if (!parsed.success) fail(parsed.error.issues[0]?.message ?? "Check the form and try again.");
   const { fullName, email } = parsed.data;
 
+  // Required here, not left to backfill later — Journey's ask: a coach's
+  // 1099 commission rate is set at the owner level right at account
+  // creation.
+  const commissionPercent = parseCommissionPercent(formData);
+  if (commissionPercent === null) fail("Enter the coach's commission percentage (0-100).");
+
   if (await findUserByEmail(email)) {
     fail(`${email} already has an account.`);
   }
@@ -52,13 +70,15 @@ export async function inviteCoach(formData: FormData) {
   if (existingInvite && !existingInvite.usedAt) {
     // Already a pending invite for this address — resend rather than
     // erroring, since coach_invitations.email is UNIQUE and a second
-    // createCoachInvitation call would just fail on that constraint.
+    // createCoachInvitation call would just fail on that constraint. The
+    // originally-entered commission rate stays as-is; resending doesn't
+    // change it (same treatment as fullName below).
     const invitation = await resendCoachInvitation(existingInvite.id);
     await sendInviteEmail(invitation.email, invitation.fullName, invitation.token);
     redirect(PATH);
   }
 
-  const invitation = await createCoachInvitation(email, fullName);
+  const invitation = await createCoachInvitation(email, fullName, commissionPercent);
   await sendInviteEmail(invitation.email, invitation.fullName, invitation.token);
   redirect(PATH);
 }
@@ -88,5 +108,18 @@ export async function updateUserNameAction(userId: string, formData: FormData) {
   const fullName = parseText(formData, "fullName", { maxLength: 200 });
   if (!fullName) fail("Enter a name.");
   await setUserFullName(userId, fullName);
+  redirect(PATH);
+}
+
+// Inline "Set %"/"Update %" — backfills a commission rate for a coach
+// invited before this existed, or changes one later. Already-generated
+// invoices keep whatever rate they were generated under (coach_invoices.
+// commission_percent is a snapshot — see schema.sql) so this never rewrites
+// past invoices.
+export async function updateUserCommissionPercentAction(userId: string, formData: FormData) {
+  await requireOwner();
+  const commissionPercent = parseCommissionPercent(formData);
+  if (commissionPercent === null) fail("Commission percentage must be a whole number between 0 and 100.");
+  await setUserCommissionPercent(userId, commissionPercent);
   redirect(PATH);
 }

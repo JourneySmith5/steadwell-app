@@ -12,6 +12,8 @@ import { findClientById, type ClientRow } from "@/lib/repo/clients";
 import { ACCOUNTABILITY_TIERS } from "@/lib/enums";
 import { getThankYou15Eligibility, getBirthday20Eligibility } from "@/lib/promotions";
 import { sendPushToCoach } from "@/lib/webPush";
+import { recordAccountabilityPayment } from "@/lib/repo/accountabilityPayments";
+import { nowIso } from "@/lib/db/client";
 
 // One ad-hoc Stripe Coupon per eligible promo, each with its own correct
 // lifetime (THANKYOU15 repeats for 3 months; BIRTHDAY20 is a single cycle)
@@ -115,7 +117,7 @@ export async function fulfillAccountabilityEnrollment(clientId: string, tierId: 
   if (!client) throw new Error(`Client ${clientId} not found`);
 
   const alreadyActive = client.status === "accountability_active";
-  await upsertSubscription({ clientId, tier: tierId, status: "active", stripeSubscriptionId, currentPeriodEnd: null });
+  const subscription = await upsertSubscription({ clientId, tier: tierId, status: "active", stripeSubscriptionId, currentPeriodEnd: null });
 
   if (!alreadyActive) {
     await setClientStatus(clientId, "accountability_active", `Client enrolled in ${findTier(tierId)?.label ?? tierId}`);
@@ -128,6 +130,29 @@ export async function fulfillAccountabilityEnrollment(clientId: string, tierId: 
       body: `${client.fullName} enrolled in ${findTier(tierId)?.label ?? tierId}.`,
       url: `/coach/clients/${clientId}`,
     });
+
+    // Test mode only (stripeSubscriptionId is null iff there's no real
+    // Stripe object behind this — see startAccountabilityCheckout's
+    // {mode: "test"} fork). Real enrollments get their revenue-ledger row
+    // from the invoice.payment_succeeded webhook instead (src/app/api/
+    // webhooks/stripe/route.ts), same as every renewal after it — this is
+    // just the one local/demo equivalent, since there's no monthly billing
+    // clock to simulate here beyond the moment of enrollment itself. A
+    // coach's /coach/billing invoice for a test-mode client will only ever
+    // reflect this single month, not ongoing "renewals," until real Stripe
+    // is configured.
+    if (!stripeSubscriptionId) {
+      const tier = findTier(tierId);
+      if (tier) {
+        await recordAccountabilityPayment({
+          clientId,
+          subscriptionId: subscription.id,
+          amountCents: tier.priceCents,
+          stripeInvoiceId: null,
+          paidAt: nowIso(),
+        });
+      }
+    }
   }
 }
 

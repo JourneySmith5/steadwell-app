@@ -6,7 +6,9 @@ import {
   getRevenueByCoach,
   getDiscountCodeImpact,
 } from "@/lib/repo/reports";
-import { Card, PageHeader } from "@/components/ui";
+import { listAllCoachInvoices } from "@/lib/repo/coachInvoices";
+import { Card, PageHeader, Button } from "@/components/ui";
+import { markCoachInvoicePaidAction } from "./actions";
 
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -15,12 +17,13 @@ function money(cents: number): string {
 export default async function ReportsPage() {
   await requireOwner();
 
-  const [totals, mrr, revenueByCoach, discountImpact, coachUsers] = await Promise.all([
+  const [totals, mrr, revenueByCoach, discountImpact, coachUsers, coachInvoices] = await Promise.all([
     getFoundationRevenueTotals(),
     getActiveSubscriptionsMrr(),
     getRevenueByCoach(),
     getDiscountCodeImpact(),
     listCoachSideUsers(),
+    listAllCoachInvoices(),
   ]);
 
   // Every current owner/coach shows up even at $0 — merge the roster in
@@ -97,6 +100,47 @@ export default async function ReportsPage() {
             </li>
           ))}
         </ul>
+      </Card>
+
+      <Card className="mb-6 p-0 overflow-hidden">
+        <h2 className="font-heading text-lg text-brand-dark px-6 pt-5 pb-1">Coach Invoices</h2>
+        <p className="text-xs text-brand-slate/60 px-6 pb-3">
+          Commission invoices coaches have generated for themselves on their own Billing page. Mark one Paid once
+          you&apos;ve actually sent the money — there&apos;s no in-app payout, this is just the record.
+        </p>
+        {coachInvoices.length === 0 ? (
+          <p className="text-sm text-brand-slate/70 italic px-6 pb-5">No coach invoices generated yet.</p>
+        ) : (
+          <ul className="divide-y divide-brand-pale">
+            {coachInvoices.map((inv) => (
+              <li key={inv.id} className="px-6 py-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm text-brand-dark font-medium">
+                    {inv.coachFullName} — {money(inv.totalCents)}
+                  </p>
+                  <p className="text-xs text-brand-slate/60">
+                    Generated {new Date(inv.createdAt).toLocaleDateString()} · {inv.commissionPercent}% ·{" "}
+                    <span className={inv.status === "paid" ? "text-brand-sage font-semibold" : "text-brand-slate/70"}>
+                      {inv.status === "paid" ? `Paid ${inv.paidAt ? new Date(inv.paidAt).toLocaleDateString() : ""}` : "Pending"}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <a href={`/api/coach-invoices/${inv.id}/pdf`} className="text-sm text-brand-sage underline">
+                    PDF
+                  </a>
+                  {inv.status === "pending" && (
+                    <form action={markCoachInvoicePaidAction.bind(null, inv.id)}>
+                      <Button type="submit" variant="secondary" className="text-xs px-2 py-1">
+                        Mark Paid
+                      </Button>
+                    </form>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card>
