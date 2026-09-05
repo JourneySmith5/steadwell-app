@@ -744,3 +744,21 @@ CREATE TABLE IF NOT EXISTS coach_invoice_items (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_invoice_items_source ON coach_invoice_items(source_type, source_id);
 CREATE INDEX IF NOT EXISTS idx_coach_invoice_items_invoice ON coach_invoice_items(coach_invoice_id);
+
+-- Accountability meeting redemptions — Journey's ask: clients should only
+-- be able to schedule as many meetings a month as their package includes
+-- (ACCOUNTABILITY_TIERS.meetingsPerMonth, src/lib/enums.ts). This app has
+-- no Google Calendar API integration, so it can't see or control what
+-- happens on Google's side of the actual booking — a redemption row is
+-- recorded the moment a client spends one of their monthly slots
+-- (redeemMeetingSlot, src/app/portal/(protected)/accountability/actions.ts),
+-- right before they're handed off to Coach's external booking link. Once a
+-- client has redeemed their package's full monthly allowance, the portal
+-- hard-blocks further redemptions until the next calendar month — see
+-- countMeetingRedemptionsThisMonth in src/lib/repo/meetingRedemptions.ts.
+CREATE TABLE IF NOT EXISTS meeting_redemptions (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL REFERENCES clients(id),
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS idx_meeting_redemptions_client ON meeting_redemptions(client_id);

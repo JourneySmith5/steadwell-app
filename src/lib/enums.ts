@@ -153,10 +153,16 @@ export const FOUNDATION_INTAKE_STATUSES = ["in_progress", "submitted"] as const;
 export type FoundationIntakeStatus = (typeof FOUNDATION_INTAKE_STATUSES)[number];
 
 // §9 Stripe & Billing
+// meetingsPerMonth is the machine-usable form of `cadence` — added
+// alongside the meeting-redemption gate (see meetingRedemptions.ts /
+// the Accountability portal page) so a client can only redeem as many
+// booking-link hand-offs per calendar month as their package actually
+// includes. "weekly meetings" is modeled as 4/month (not week-count,
+// which varies) — simplest reading of the existing cadence label.
 export const ACCOUNTABILITY_TIERS = [
-  { id: "steady", label: "Steady Accountability", priceCents: 7900, cadence: "1 meeting/month" },
-  { id: "momentum", label: "Momentum Accountability", priceCents: 14900, cadence: "2 meetings/month" },
-  { id: "intensive", label: "Intensive Accountability", priceCents: 24900, cadence: "weekly meetings" },
+  { id: "steady", label: "Steady Accountability", priceCents: 7900, cadence: "1 meeting/month", meetingsPerMonth: 1 },
+  { id: "momentum", label: "Momentum Accountability", priceCents: 14900, cadence: "2 meetings/month", meetingsPerMonth: 2 },
+  { id: "intensive", label: "Intensive Accountability", priceCents: 24900, cadence: "weekly meetings", meetingsPerMonth: 4 },
 ] as const;
 
 export const FOUNDATION_FEE_CENTS = 39900;

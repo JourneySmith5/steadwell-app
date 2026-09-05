@@ -10,6 +10,7 @@ import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { countMessagesForClient, countUnreadForClientThread } from "@/lib/repo/messages";
 import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { findOffboardingByClientId } from "@/lib/repo/offboarding";
+import { countMeetingRedemptionsThisMonth } from "@/lib/repo/meetingRedemptions";
 import { listStatements } from "@/lib/repo/statements";
 import { formatStatementMonth } from "@/lib/statementMonths";
 import { PageHeader, Card, StatusBadge, Button, Select } from "@/components/ui";
@@ -72,6 +73,12 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
   const assignedCoach = coachUsers.find((u) => u.id === client.coachId);
   const foundationPayment = payments.find((p) => p.type === "foundation" && p.status === "paid");
   const canRefundFoundationFee = isOwner && !!foundationPayment && FOUNDATION_REFUND_ELIGIBLE_STATUSES.includes(client.status);
+  // Read-only visibility into the portal's meeting-redemption gate (see
+  // src/app/portal/(protected)/accountability/actions.ts) — Coach can see
+  // how much of the client's monthly allowance is used, same number the
+  // client sees in their own portal.
+  const redeemedThisMonth =
+    subscription?.status === "active" && subscriptionTier ? await countMeetingRedemptionsThisMonth(client.id) : 0;
 
   return (
     <div>
@@ -213,6 +220,11 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                 {SUBSCRIPTION_STATUS_LABELS[subscription.status]}
                 {!subscription.stripeSubscriptionId && " (test mode)"}
               </p>
+              {subscription.status === "active" && subscriptionTier && (
+                <p className="text-xs text-brand-slate/60 mt-2">
+                  Meetings this month: {redeemedThisMonth} of {subscriptionTier.meetingsPerMonth} redeemed.
+                </p>
+              )}
               <p className="text-xs text-brand-slate/60 mt-2">
                 Self-service — the client chooses, changes, and cancels their own tier from the portal; no
                 Coach approval step exists by design.

@@ -5,7 +5,8 @@ import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { STRIPE_CONFIGURED } from "@/lib/stripe";
 import { findBookingLinkUrl } from "@/lib/repo/bookingLinks";
-import { chooseAccountabilityTier, changeTier, cancelSubscription, saveProgressNotes } from "./actions";
+import { countMeetingRedemptionsThisMonth } from "@/lib/repo/meetingRedemptions";
+import { chooseAccountabilityTier, changeTier, cancelSubscription, saveProgressNotes, redeemMeetingSlot } from "./actions";
 
 function dollars(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -14,7 +15,7 @@ function dollars(cents: number) {
 export default async function AccountabilityPage(props: PageProps<"/portal/accountability">) {
   const user = await requireClient();
   const client = user.client;
-  const { enrolled, test, changed, notesSaved } = await props.searchParams;
+  const { enrolled, test, changed, notesSaved, meetingCapReached, noBookingLink } = await props.searchParams;
 
   if (!client) {
     return (
@@ -34,6 +35,12 @@ export default async function AccountabilityPage(props: PageProps<"/portal/accou
   ]);
   const isActive = subscription?.status === "active";
   const currentTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
+  // Meeting-redemption gate — Journey's ask: a client can only schedule as
+  // many meetings a month as their package includes. Only meaningful for an
+  // active subscription with a real tier; see redeemMeetingSlot (./actions.ts)
+  // for the server-side re-check this UI gate mirrors.
+  const redeemedThisMonth = isActive && currentTier ? await countMeetingRedemptionsThisMonth(client.id) : 0;
+  const remainingMeetings = currentTier ? Math.max(0, currentTier.meetingsPerMonth - redeemedThisMonth) : 0;
 
   return (
     <div>
@@ -162,8 +169,40 @@ export default async function AccountabilityPage(props: PageProps<"/portal/accou
             </li>
           ))}
         </ul>
-        <p className="text-xs text-brand-slate/60 mt-3 border-t border-brand-pale pt-3">
-          {bookingUrl ? (
+        <div className="text-xs text-brand-slate/60 mt-3 border-t border-brand-pale pt-3">
+          {isActive && currentTier ? (
+            <>
+              {meetingCapReached === "1" && (
+                <p className="text-red-700 mb-2">
+                  You&apos;ve already used all {currentTier.meetingsPerMonth} of your {currentTier.label} meetings
+                  this month.
+                </p>
+              )}
+              {noBookingLink === "1" && (
+                <p className="text-red-700 mb-2">
+                  No booking link is configured yet — contact your coach directly to schedule.
+                </p>
+              )}
+              {remainingMeetings > 0 ? (
+                <>
+                  <p className="mb-2">
+                    {remainingMeetings} of {currentTier.meetingsPerMonth} {currentTier.label} meeting
+                    {currentTier.meetingsPerMonth === 1 ? "" : "s"} remaining this month.
+                  </p>
+                  <form action={redeemMeetingSlot}>
+                    <Button type="submit" variant="secondary">
+                      Redeem &amp; Book a Meeting
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <p>
+                  You&apos;ve used all {currentTier.meetingsPerMonth} of your {currentTier.label} meetings this
+                  month — more become available next month.
+                </p>
+              )}
+            </>
+          ) : bookingUrl ? (
             <>
               Book a meeting via{" "}
               <a className="underline" href={bookingUrl} target="_blank" rel="noreferrer">
@@ -174,7 +213,7 @@ export default async function AccountabilityPage(props: PageProps<"/portal/accou
           ) : (
             "Meetings are booked through Coach's Google Calendar Appointment Schedule. The booking link isn't configured on this deployment yet."
           )}
-        </p>
+        </div>
       </Card>
     </div>
   );

@@ -7,8 +7,12 @@ import {
   fulfillAccountabilityEnrollment,
   changeAccountabilityTier,
   cancelAccountabilitySubscription,
+  findTier,
 } from "@/lib/accountability";
 import { findMeetingById, setClientProgressNotes } from "@/lib/repo/meetings";
+import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
+import { recordMeetingRedemption, countMeetingRedemptionsThisMonth } from "@/lib/repo/meetingRedemptions";
+import { findBookingLinkUrl } from "@/lib/repo/bookingLinks";
 
 export async function chooseAccountabilityTier(tierId: string) {
   const user = await requireClient();
@@ -42,6 +46,39 @@ export async function cancelSubscription() {
 
   await cancelAccountabilitySubscription(user.client.id);
   redirect("/portal/account");
+}
+
+// Journey's ask: a client can only schedule as many meetings a month as
+// their package includes. This app has no Google Calendar API integration
+// (see the Accountability portal page's fallback copy), so it can't see or
+// gate the actual booking on Google's side — redeeming a slot IS the gate:
+// it's the commitment point, recorded the instant before handing the
+// client off to Coach's external booking link, and it re-checks the cap
+// server-side rather than trusting that the portal only shows the button
+// when slots remain (the same "never trust the UI gate alone" reasoning as
+// every other guarded action in this app).
+export async function redeemMeetingSlot() {
+  const user = await requireClient();
+  if (!user.client) redirect("/portal");
+
+  const subscription = await findSubscriptionByClientId(user.client.id);
+  const tier = subscription ? findTier(subscription.tier) : undefined;
+  if (!subscription || subscription.status !== "active" || !tier) {
+    redirect("/portal/accountability");
+  }
+
+  const redeemedThisMonth = await countMeetingRedemptionsThisMonth(user.client.id);
+  if (redeemedThisMonth >= tier.meetingsPerMonth) {
+    redirect("/portal/accountability?meetingCapReached=1");
+  }
+
+  const bookingUrl = await findBookingLinkUrl("accountability");
+  if (!bookingUrl) {
+    redirect("/portal/accountability?noBookingLink=1");
+  }
+
+  await recordMeetingRedemption(user.client.id);
+  redirect(bookingUrl);
 }
 
 // Lets the client jot progress notes ahead of their own Accountability
