@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { findClientById, setClientCoach } from "@/lib/repo/clients";
 import { resendInvitation as resendInvitationRow } from "@/lib/repo/invitations";
 import { createCheckoutLink, bumpResendCount } from "@/lib/repo/checkoutLinks";
+import { listPaymentsForClient, markPaymentStatus } from "@/lib/repo/payments";
 import { setClientStatus } from "@/lib/status";
 import { deleteClientImmediately } from "@/lib/offboarding";
 import {
@@ -13,6 +14,8 @@ import {
   accountInvitationTemplate,
 } from "@/lib/email";
 import { requireClientAccess, requireOwner } from "@/lib/dal";
+import { getStripe } from "@/lib/stripe";
+import { FOUNDATION_REFUND_ELIGIBLE_STATUSES } from "@/lib/enums";
 
 export async function approveClient(clientId: string) {
   const { client } = await requireClientAccess(clientId);
@@ -78,6 +81,59 @@ export async function deleteClientForever(clientId: string, formData: FormData) 
 
   await deleteClientImmediately(clientId, "Deleted immediately by Coach via client detail page");
   redirect(`/coach/clients?deleted=1`);
+}
+
+// Owner-only, real money movement — issues a real Stripe refund (or the
+// test-mode equivalent) for the $399 Financial Foundation fee, per §17's
+// post-legal-review policy: refundable any time before Client submits
+// their Foundation Intake, non-refundable after. FOUNDATION_REFUND_
+// ELIGIBLE_STATUSES (src/lib/enums.ts) is the single source of truth for
+// that cutoff — re-checked here server-side (never trust the page's own
+// gate, which just hides the button once the status has moved past it).
+// The RefundFoundationFeeForm client component's typed-confirmation gate
+// is the same UI-courtesy pattern as DeleteClientForm above — friction
+// against a misclick, not the actual safety, since real money is moving.
+//
+// A refund ends the engagement the same way a decline or a client-initiated
+// cancellation does: setClientStatus(..., "canceled", ...) both records why
+// and — since "canceled" is an OFFBOARDING_TRIGGER_STATUSES entry — starts
+// the normal 30-day export/deletion clock automatically (see src/lib/status.ts).
+export async function refundFoundationPayment(clientId: string, formData: FormData) {
+  await requireOwner();
+  const client = await findClientById(clientId);
+  if (!client) throw new Error("Client not found");
+
+  const typed = String(formData.get("confirmRefund") ?? "").trim().toUpperCase();
+  if (typed !== "REFUND") {
+    redirect(`/coach/clients/${clientId}?refundMismatch=1`);
+  }
+
+  if (!FOUNDATION_REFUND_ELIGIBLE_STATUSES.includes(client.status)) {
+    redirect(`/coach/clients/${clientId}?refundError=${encodeURIComponent("This client has already submitted their Foundation Intake — the fee is no longer refundable.")}`);
+  }
+
+  const payments = await listPaymentsForClient(clientId);
+  const foundationPayment = payments.find((p) => p.type === "foundation" && p.status === "paid");
+  if (!foundationPayment) {
+    redirect(`/coach/clients/${clientId}?refundError=${encodeURIComponent("No paid Financial Foundation fee was found to refund.")}`);
+  }
+
+  const stripe = getStripe();
+  if (stripe && foundationPayment.stripePaymentIntentId) {
+    try {
+      await stripe.refunds.create({ payment_intent: foundationPayment.stripePaymentIntentId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Stripe refund failed.";
+      redirect(`/coach/clients/${clientId}?refundError=${encodeURIComponent(message)}`);
+    }
+  }
+  // No live Stripe payment intent (test mode, same fork as everywhere else
+  // this app touches Stripe — see src/lib/stripe.ts) — nothing to actually
+  // refund through Stripe, just record it as refunded locally below.
+
+  await markPaymentStatus(foundationPayment.id, "refunded");
+  await setClientStatus(clientId, "canceled", "Financial Foundation fee refunded before Foundation Intake was submitted");
+  redirect(`/coach/clients/${clientId}`);
 }
 
 // Owner-only — reassigns which coach a client belongs to (or unassigns,

@@ -19,10 +19,12 @@ import {
   SUBSCRIPTION_STATUS_LABELS,
   ACCOUNTABILITY_TIERS,
   OFFBOARDING_TRIGGER_STATUSES,
+  FOUNDATION_REFUND_ELIGIBLE_STATUSES,
   type ClientStatus,
 } from "@/lib/enums";
 import { approveClient, declineClient, resendAgreementEmail, resendInvitationEmail, reassignClientCoach } from "./actions";
 import { DeleteClientForm } from "./DeleteClientForm";
+import { RefundFoundationFeeForm } from "./RefundFoundationFeeForm";
 import Link from "next/link";
 
 // Once Foundation Intake is submitted, Coach always has a way back into the
@@ -42,7 +44,7 @@ const PLAN_BUILDER_VISIBLE_STATUSES: ClientStatus[] = [
 
 export default async function ClientDetailPage(props: PageProps<"/coach/clients/[id]">) {
   const { id } = await props.params;
-  const { deleteMismatch } = await props.searchParams;
+  const { deleteMismatch, refundMismatch, refundError } = await props.searchParams;
   const { user, client } = await requireClientAccess(id);
   const isOwner = user.role === "owner";
 
@@ -68,6 +70,8 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
   const subscriptionTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
   const coachOnlyUsers = coachUsers.filter((u) => u.role === "coach");
   const assignedCoach = coachUsers.find((u) => u.id === client.coachId);
+  const foundationPayment = payments.find((p) => p.type === "foundation" && p.status === "paid");
+  const canRefundFoundationFee = isOwner && !!foundationPayment && FOUNDATION_REFUND_ELIGIBLE_STATUSES.includes(client.status);
 
   return (
     <div>
@@ -126,6 +130,24 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                   </Button>
                 </form>
               )}
+            </Card>
+          )}
+
+          {canRefundFoundationFee && foundationPayment && (
+            <Card>
+              <h2 className="font-heading text-lg text-brand-dark mb-3">Financial Foundation Fee</h2>
+              <p className="text-sm text-brand-slate mb-3">
+                ${(foundationPayment.amountCents / 100).toFixed(2)} collected{" "}
+                {new Date(foundationPayment.createdAt).toLocaleDateString()}. Per §17, this fee is
+                refundable until the client submits their Foundation Intake — owner-only, since it&apos;s a
+                real refund.
+              </p>
+              {refundError && <p className="text-sm text-red-700 mb-3">{refundError}</p>}
+              <RefundFoundationFeeForm
+                clientId={client.id}
+                amountLabel={`$${(foundationPayment.amountCents / 100).toFixed(2)}`}
+                mismatch={refundMismatch === "1"}
+              />
             </Card>
           )}
 

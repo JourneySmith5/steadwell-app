@@ -68,8 +68,12 @@ export function getAgreementBlocks(): AgreementBlock[] {
     },
     {
       type: "paragraph",
+      text: "The Financial Foundation fee is refundable upon Client's request at any time before Client submits their Foundation Intake. Once Client submits their Foundation Intake, the Financial Foundation fee becomes non-refundable.",
+    },
+    {
+      type: "paragraph",
       emphasis: true,
-      text: "All fees are non-refundable. This includes the Financial Foundation fee and every Accountability Track billing cycle, in full, regardless of usage.",
+      text: "Every Accountability Track billing cycle is non-refundable in full once billed, regardless of usage.",
     },
     {
       type: "paragraph",

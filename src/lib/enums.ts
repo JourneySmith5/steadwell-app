@@ -180,7 +180,21 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
 
 // §17 — bump this if the agreement text changes; recorded on every
 // acceptance so old acceptances stay tied to the version they actually saw.
-export const AGREEMENT_VERSION = "2026-08-28";
+export const AGREEMENT_VERSION = "2026-09-05";
+
+// §17's refund policy, post-legal-review: the $399 Financial Foundation fee
+// is refundable up until Client submits their Foundation Intake, and
+// non-refundable from that point on. This is the single source of truth
+// for "hasn't submitted yet" — both the Refund action's own server-side
+// guard (src/app/coach/(protected)/clients/[id]/actions.ts) and the Client
+// Detail page's UI gate read this list, so they can't drift apart.
+// "foundation_intake_submitted" and everything after it is deliberately
+// excluded — that's the cutoff itself.
+export const FOUNDATION_REFUND_ELIGIBLE_STATUSES: ClientStatus[] = [
+  "payment_received",
+  "account_setup_pending",
+  "foundation_intake",
+];
 
 // §9 discount codes — seeded by scripts/seed.ts, disabled by default,
 // coach toggles them on/off from /coach/settings/discount-codes.
