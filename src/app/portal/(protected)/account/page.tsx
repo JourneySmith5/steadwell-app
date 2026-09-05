@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireClient } from "@/lib/dal";
 import { PageHeader, Card, Button } from "@/components/ui";
 import { OFFBOARDING_TRIGGER_STATUSES } from "@/lib/enums";
@@ -53,6 +54,19 @@ export default async function AccountPage() {
           )}
         </Card>
       )}
+      <Card className="mt-4">
+        <h2 className="font-heading text-lg text-brand-dark mb-2">Legal</h2>
+        <p className="text-sm text-brand-slate">
+          <Link href="/privacy" target="_blank" className="text-brand-dark underline">
+            Privacy Policy
+          </Link>
+        </p>
+        <p className="text-sm text-brand-slate mt-1">
+          <Link href="/terms" target="_blank" className="text-brand-dark underline">
+            Terms of Service
+          </Link>
+        </p>
+      </Card>
     </div>
   );
 }

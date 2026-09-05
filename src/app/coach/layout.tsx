@@ -28,6 +28,7 @@ export default async function CoachLayout({ children }: LayoutProps<"/coach">) {
       ? [
           { href: "/coach/team", label: "Team" },
           { href: "/coach/reports", label: "Reports" },
+          { href: "/coach/analytics", label: "Analytics" },
           { href: "/coach/settings/discount-codes", label: "Discount Codes" },
           { href: "/coach/settings/booking-links", label: "Booking Links" },
         ]

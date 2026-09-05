@@ -43,6 +43,21 @@ export const STATUS_LABELS: Record<ClientStatus, string> = {
 // Statuses that trigger the §16 offboarding flow uniformly.
 export const OFFBOARDING_TRIGGER_STATUSES: ClientStatus[] = ["graduated", "canceled", "closed"];
 
+// §3 Public Consultation Application — state of residence, now that the
+// post-legal-review Agreement/Terms confirm Steadwell serves clients
+// nationwide ("throughout the United States," "a resident of a state or
+// territory of the United States") rather than Texas residents only.
+export const US_STATES = [
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware",
+  "District of Columbia", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa",
+  "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+  "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+  "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon",
+  "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah",
+  "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
+  "Puerto Rico", "Guam", "U.S. Virgin Islands", "American Samoa", "Northern Mariana Islands",
+] as const;
+
 // §3 Public Consultation Application — field option sets
 export const CURRENT_SITUATION_OPTIONS = [
   "Financially stable",
@@ -188,19 +203,13 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
 // acceptance so old acceptances stay tied to the version they actually saw.
 export const AGREEMENT_VERSION = "2026-09-05";
 
-// §17's refund policy, post-legal-review: the $399 Financial Foundation fee
-// is refundable up until Client submits their Foundation Intake, and
-// non-refundable from that point on. This is the single source of truth
-// for "hasn't submitted yet" — both the Refund action's own server-side
-// guard (src/app/coach/(protected)/clients/[id]/actions.ts) and the Client
-// Detail page's UI gate read this list, so they can't drift apart.
-// "foundation_intake_submitted" and everything after it is deliberately
-// excluded — that's the cutoff itself.
-export const FOUNDATION_REFUND_ELIGIBLE_STATUSES: ClientStatus[] = [
-  "payment_received",
-  "account_setup_pending",
-  "foundation_intake",
-];
+// §17's refund policy: the $399 Financial Foundation fee is refundable
+// until Coach delivers the Foundation Intake session (a completed
+// "Foundation"-type meeting), not tied to a fixed set of client-pipeline
+// statuses — see src/lib/foundationRefund.ts, which superseded the earlier
+// FOUNDATION_REFUND_ELIGIBLE_STATUSES status-list approach once the
+// finalized Agreement text (§5.3.1) confirmed the cutoff is the coach
+// delivering the session, not the client submitting the intake form.
 
 // §9 discount codes — seeded by scripts/seed.ts, disabled by default,
 // coach toggles them on/off from /coach/settings/discount-codes.

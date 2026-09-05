@@ -9,6 +9,7 @@ import {
   type OffboardingRow,
 } from "@/lib/repo/offboarding";
 import { hardDeleteClient } from "@/lib/repo/deletion";
+import { purgeExpiredRetainedPayments } from "@/lib/repo/payments";
 import { sendSystemEmail, offboardingReminderTemplate, offboardingFinalNoticeTemplate } from "@/lib/email";
 import { setClientStatus } from "@/lib/status";
 import { OFFBOARDING_TRIGGER_STATUSES } from "@/lib/enums";
@@ -81,17 +82,38 @@ export async function runReminderSweep(now: Date = new Date()): Promise<{ sent: 
 // — it deletes anything past its 30-day mark regardless of whether the
 // client exported. This is what makes it a genuine hard stop." See
 // hardDeleteClient (src/lib/repo/deletion.ts) for exactly what's removed.
-export async function runDeletionSweep(now: Date = new Date()): Promise<{ deleted: string[] }> {
+//
+// Agreement §8.3 / Privacy Policy §4.4 legal-hold exception: a client with
+// litigationHoldActive set is skipped entirely (left in the active
+// offboardings list, still counting down on paper) until the hold is
+// lifted from the Client Detail page — same idea as "held" is enforced
+// everywhere else in this codebase, checked right before the irreversible
+// action rather than baked into the query that finds candidates.
+//
+// Also runs the Privacy Policy §4.5 payment-record purge (§16 doesn't
+// mention this — added once the Policy's 7-year retention promise made
+// clear that "deleted" now means two different things for two different
+// tables) on the same cadence, since both are "what time-based cleanup
+// needs to happen today" for this sweep.
+export async function runDeletionSweep(now: Date = new Date()): Promise<{ deleted: string[]; held: string[]; purgedPayments: number }> {
   const deleted: string[] = [];
+  const held: string[] = [];
 
   for (const offboarding of await listActiveOffboardings()) {
     if (new Date(offboarding.deletionDueAt) > now) continue;
+    const client = await findClientById(offboarding.clientId);
+    if (client?.litigationHoldActive) {
+      held.push(offboarding.clientId);
+      continue;
+    }
     await hardDeleteClient(offboarding.clientId);
     await markDeleted(offboarding.clientId);
     deleted.push(offboarding.clientId);
   }
 
-  return { deleted };
+  const purgedPayments = await purgeExpiredRetainedPayments(now);
+
+  return { deleted, held, purgedPayments };
 }
 
 // An admin escape hatch, not part of the normal §16 flow — for a client
@@ -114,6 +136,9 @@ export async function runDeletionSweep(now: Date = new Date()): Promise<{ delete
 export async function deleteClientImmediately(clientId: string, note?: string): Promise<void> {
   const client = await findClientById(clientId);
   if (!client) throw new Error(`Client ${clientId} not found`);
+  if (client.litigationHoldActive) {
+    throw new Error("This client has an active litigation hold — lift it before deleting.");
+  }
 
   let offboarding = await findOffboardingByClientId(clientId);
   if (!offboarding) {

@@ -762,3 +762,48 @@ CREATE TABLE IF NOT EXISTS meeting_redemptions (
   created_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS idx_meeting_redemptions_client ON meeting_redemptions(client_id);
+
+-- Litigation hold (Agreement §8.3, Privacy Policy §4.4): "Notwithstanding
+-- [the 30-day deletion], if a legal dispute, claim, or investigation
+-- involving Client's account is pending or reasonably anticipated... Coach
+-- may retain Client's data for as long as reasonably necessary." Lives on
+-- `clients` rather than `offboardings` because a hold needs to be settable
+-- any time — including before a client has ever entered offboarding at
+-- all — so it's already in place if/when the 30-day sweep later applies.
+-- Owner-only toggle (see setLitigationHold, src/lib/repo/clients.ts, and
+-- the Client Detail page's Legal Hold control); runDeletionSweep and
+-- deleteClientImmediately (src/lib/offboarding.ts) both check this before
+-- calling hardDeleteClient.
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS litigation_hold_active INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS litigation_hold_note TEXT;
+
+-- Internal usage analytics (Privacy Policy §1.2/§2(7): "usage data,
+-- including pages visited, features used, session duration, clickstream
+-- data... analyzed using our own internal analytics tools — we do not use
+-- any third-party analytics service"). Recorded by src/proxy.ts for every
+-- request under /portal and /coach (the actual "Platform" the Policy is
+-- describing — the public marketing pages aren't logged). Deliberately
+-- anonymous/aggregate rather than tied to a specific user or client: no
+-- new cookie is introduced (Privacy Policy §6 promises exactly one cookie,
+-- the session authentication cookie), and no PII is stored here at all.
+-- session_hash is a one-way SHA-256 of the existing steadwell_session
+-- cookie's raw value — it lets page views from the same login be grouped
+-- into a session (for session-duration and clickstream-order reporting)
+-- without ever decrypting or storing the session's actual contents.
+CREATE TABLE IF NOT EXISTS page_views (
+  id TEXT PRIMARY KEY,
+  session_hash TEXT NOT NULL,
+  area TEXT NOT NULL,
+  path TEXT NOT NULL,
+  referrer TEXT,
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at);
+CREATE INDEX IF NOT EXISTS idx_page_views_session ON page_views(session_hash);
+
+-- The new Agreement/Privacy Policy/Terms of Service, finalized after legal
+-- review, confirm Steadwell serves clients "throughout the United States"
+-- rather than Texas residents only. `state` keeps its NOT NULL DEFAULT 'TX'
+-- (harmless — /apply now always submits the applicant's real state, see
+-- src/app/apply/actions.ts) so this is purely the residency-gate checkbox
+-- copy and createClient's hardcoded 'TX' changing, not a schema relaxation.

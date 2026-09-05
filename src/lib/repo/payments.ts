@@ -115,6 +115,33 @@ export async function listStalePendingPayments(hoursThreshold: number): Promise<
   return rows.map(fromRow);
 }
 
+// Privacy Policy §4.5: transaction records (date, amount, and — via
+// Stripe's own retention, since this app never stores card details
+// locally — the payment method) "may be retained for up to seven (7)
+// years after the transaction date... even after account closure and data
+// deletion." hardDeleteClient (src/lib/repo/deletion.ts) deliberately
+// leaves `payments` rows alone rather than deleting them — the parent
+// `clients` row it references is already anonymized by that same
+// operation, so a surviving payments row carries no identifying
+// information on its own. This purges the ones old enough that the 7-year
+// window has actually elapsed, and only for clients who have gone through
+// a real hard-delete (an active or not-yet-deleted client's payment
+// history stays untouched regardless of age). Called from
+// runDeletionSweep (src/lib/offboarding.ts) alongside the sweep that does
+// the hard-deleting in the first place, since both run on the same daily
+// cron.
+export async function purgeExpiredRetainedPayments(now: Date = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - 7 * 365.25 * 24 * 60 * 60 * 1000).toISOString();
+  const purged = await all<{ id: string }>(
+    `DELETE FROM payments
+     WHERE created_at < $cutoff
+       AND client_id IN (SELECT client_id FROM offboardings WHERE deleted_at IS NOT NULL)
+     RETURNING id`,
+    { $cutoff: cutoff }
+  );
+  return purged.length;
+}
+
 export async function markPaymentStatus(id: string, status: PaymentStatus, stripePaymentIntentId?: string): Promise<void> {
   await run(
     `UPDATE payments SET status = $status, stripe_payment_intent_id = COALESCE($intentId, stripe_payment_intent_id), updated_at = $now WHERE id = $id`,

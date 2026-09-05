@@ -13,6 +13,7 @@ const schema = z.object({
   email: z.email("Enter a valid email."),
   phone: z.string().min(7, "Enter a valid phone number."),
   city: z.string().min(1, "Enter your city."),
+  state: z.string().min(2, "Select your state."),
   preferredContact: z.string().min(1),
   householdContext: z.string().min(1, "Let us know who's included."),
   currentSituation: z.string().min(1),
@@ -28,8 +29,13 @@ const schema = z.object({
   participationNotes: z.string().optional(),
   whyNow: z.string().optional(),
   anythingElse: z.string().optional(),
+  // Field name kept as-is (renaming the underlying DB column is a bigger,
+  // purely cosmetic migration for zero user-facing benefit) — as of the
+  // post-legal-review Agreement/Terms, this now confirms the general
+  // eligibility representation (18+, U.S. resident, legally competent —
+  // Agreement §3.1 / Terms §2), not Texas residency specifically.
   txResidencyConfirmed: z.literal("on", {
-    error: "Steadwell currently serves Texas residents only.",
+    error: "You must confirm you meet the eligibility requirements to apply.",
   }),
 });
 
@@ -65,6 +71,7 @@ export async function submitApplication(_state: ApplyFormState, formData: FormDa
     email: data.email,
     phone: data.phone,
     city: data.city,
+    state: data.state,
     preferredContact: data.preferredContact,
   });
 

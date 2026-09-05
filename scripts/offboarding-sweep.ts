@@ -21,6 +21,12 @@ async function main() {
   } else {
     console.log(`Deletion sweep: hard-deleted ${deletions.deleted.length} client(s): ${deletions.deleted.join(", ")}`);
   }
+  if (deletions.held.length > 0) {
+    console.log(`Deletion sweep: skipped ${deletions.held.length} client(s) under litigation hold: ${deletions.held.join(", ")}`);
+  }
+  if (deletions.purgedPayments > 0) {
+    console.log(`Payment retention purge: removed ${deletions.purgedPayments} record(s) past the 7-year mark.`);
+  }
 }
 
 main().then(() => process.exit(0));

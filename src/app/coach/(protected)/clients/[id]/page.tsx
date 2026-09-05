@@ -13,17 +13,25 @@ import { findOffboardingByClientId } from "@/lib/repo/offboarding";
 import { countMeetingRedemptionsThisMonth } from "@/lib/repo/meetingRedemptions";
 import { listStatements } from "@/lib/repo/statements";
 import { formatStatementMonth } from "@/lib/statementMonths";
-import { PageHeader, Card, StatusBadge, Button, Select } from "@/components/ui";
+import { PageHeader, Card, StatusBadge, Button, Select, TextArea } from "@/components/ui";
 import {
   PLAN_STATUS_LABELS,
   MEETING_STATUS_LABELS,
   SUBSCRIPTION_STATUS_LABELS,
   ACCOUNTABILITY_TIERS,
   OFFBOARDING_TRIGGER_STATUSES,
-  FOUNDATION_REFUND_ELIGIBLE_STATUSES,
   type ClientStatus,
 } from "@/lib/enums";
-import { approveClient, declineClient, resendAgreementEmail, resendInvitationEmail, reassignClientCoach } from "./actions";
+import { isFoundationFeeRefundEligible, isFoundationNonDeliveryRefundEligible, daysSince } from "@/lib/foundationRefund";
+import {
+  approveClient,
+  declineClient,
+  resendAgreementEmail,
+  resendInvitationEmail,
+  reassignClientCoach,
+  activateLitigationHold,
+  liftLitigationHold,
+} from "./actions";
 import { DeleteClientForm } from "./DeleteClientForm";
 import { RefundFoundationFeeForm } from "./RefundFoundationFeeForm";
 import Link from "next/link";
@@ -57,7 +65,11 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
       listPaymentsForClient(id),
       listEmailsForClient(id),
       listStatusEvents(id),
-      client.userId ? listMeetingsForClient(id) : Promise.resolve([]),
+      // Unconditional (not gated on client.userId) — Foundation refund
+      // eligibility now depends on whether a Foundation session has been
+      // logged as completed, which can be true even before the client's
+      // own portal account exists.
+      listMeetingsForClient(id),
       client.userId ? findSubscriptionByClientId(id) : Promise.resolve(undefined),
       OFFBOARDING_TRIGGER_STATUSES.includes(client.status) ? findOffboardingByClientId(id) : Promise.resolve(undefined),
       client.userId ? listStatements(id) : Promise.resolve([]),
@@ -72,7 +84,9 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
   const coachOnlyUsers = coachUsers.filter((u) => u.role === "coach");
   const assignedCoach = coachUsers.find((u) => u.id === client.coachId);
   const foundationPayment = payments.find((p) => p.type === "foundation" && p.status === "paid");
-  const canRefundFoundationFee = isOwner && !!foundationPayment && FOUNDATION_REFUND_ELIGIBLE_STATUSES.includes(client.status);
+  const canRefundFoundationFee = isOwner && !!foundationPayment && isFoundationFeeRefundEligible(client.status, meetings);
+  const foundationNonDeliveryFlag =
+    !!foundationPayment && isFoundationNonDeliveryRefundEligible(foundationPayment.createdAt, meetings);
   // Read-only visibility into the portal's meeting-redemption gate (see
   // src/app/portal/(protected)/accountability/actions.ts) — Coach can see
   // how much of the client's monthly allowance is used, same number the
@@ -145,10 +159,17 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
               <h2 className="font-heading text-lg text-brand-dark mb-3">Financial Foundation Fee</h2>
               <p className="text-sm text-brand-slate mb-3">
                 ${(foundationPayment.amountCents / 100).toFixed(2)} collected{" "}
-                {new Date(foundationPayment.createdAt).toLocaleDateString()}. Per §17, this fee is
-                refundable until the client submits their Foundation Intake — owner-only, since it&apos;s a
-                real refund.
+                {new Date(foundationPayment.createdAt).toLocaleDateString()}. Per Agreement §5.3.1, this
+                fee is refundable until Coach delivers (marks complete) the Foundation Intake session —
+                owner-only, since it&apos;s a real refund.
               </p>
+              {foundationNonDeliveryFlag && (
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+                  It&apos;s been {daysSince(foundationPayment.createdAt)} days since payment and the
+                  Foundation Intake session hasn&apos;t been logged as completed yet. Per §5.3.1, the
+                  client may request a full refund unless the delay was due to their own unavailability.
+                </p>
+              )}
               {refundError && <p className="text-sm text-red-700 mb-3">{refundError}</p>}
               <RefundFoundationFeeForm
                 clientId={client.id}
@@ -370,6 +391,39 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
             <p className="text-xs text-brand-slate/60 mt-2">Currently: {assignedCoach.fullName ?? assignedCoach.email}</p>
           )}
         </Card>
+
+        {isOwner && (
+          <Card>
+            <h2 className="font-heading text-lg text-brand-dark mb-3">Legal Hold</h2>
+            {client.litigationHoldActive ? (
+              <>
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+                  On hold — the §16 30-day deletion clock is paused for this client, whenever it would
+                  otherwise apply.
+                </p>
+                {client.litigationHoldNote && (
+                  <p className="text-xs text-brand-slate/70 mb-3">Note: {client.litigationHoldNote}</p>
+                )}
+                <form action={liftLitigationHold.bind(null, client.id)}>
+                  <Button type="submit" variant="secondary">
+                    Lift Hold
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <form action={activateLitigationHold.bind(null, client.id)}>
+                <p className="text-xs text-brand-slate/60 mb-2">
+                  Per Agreement §8.3 / Privacy Policy §4.4 — pauses the 30-day hard-delete for a pending or
+                  reasonably anticipated legal dispute.
+                </p>
+                <TextArea name="note" rows={2} placeholder="Optional note (case number, context) — never shown to the client." className="mb-3" />
+                <Button type="submit" variant="secondary">
+                  Place Legal Hold
+                </Button>
+              </form>
+            )}
+          </Card>
+        )}
 
         <Card>
           <h2 className="font-heading text-lg text-brand-dark mb-3">Timeline</h2>

@@ -32,6 +32,15 @@ export default function LoginPage(props: PageProps<"/login">) {
           </Link>
         </p>
       </Card>
+      <p className="text-xs text-brand-slate/60 mt-4">
+        <Link href="/privacy" className="underline hover:no-underline">
+          Privacy Policy
+        </Link>
+        <span className="mx-2">·</span>
+        <Link href="/terms" className="underline hover:no-underline">
+          Terms of Service
+        </Link>
+      </p>
     </main>
   );
 }

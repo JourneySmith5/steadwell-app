@@ -12,6 +12,9 @@ import { run, get, nowIso, withTransaction } from "@/lib/db/client";
 // client-owned table: debt_decisions and insights both reference
 // debts(id), so they're deleted before debts. Everything else only
 // references clients(id), so order between them is arbitrary.
+// "payments" is deliberately NOT in this list — see
+// src/lib/repo/payments.ts's purgeExpiredRetainedPayments for why (Privacy
+// Policy §4.5's 7-year transaction-record retention promise).
 const CHILD_TABLES_BY_CLIENT_ID = [
   "debt_decisions",
   "insights",
@@ -20,7 +23,6 @@ const CHILD_TABLES_BY_CLIENT_ID = [
   "meetings",
   "messages",
   "subscriptions",
-  "payments",
   "statements",
   "sinking_funds",
   "savings",
@@ -53,6 +55,19 @@ const CHILD_TABLES_BY_CLIENT_ID = [
 // name, email, phone, city, and anything they told Coach about their
 // plan priorities — is overwritten below, so what's left behind is an
 // opaque id with a deletion timestamp, not a usable record.
+//
+// `payments` rows also survive this (see the CHILD_TABLES_BY_CLIENT_ID
+// comment above) — Privacy Policy §4.5 promises transaction records
+// (date, amount) survive account deletion for up to 7 years for tax/
+// accounting purposes. A surviving payments row only ever points at this
+// now-anonymized clients row, so it carries nothing identifying on its
+// own. purgeExpiredRetainedPayments (src/lib/repo/payments.ts, called
+// from runDeletionSweep) deletes them for real once 7 years have actually
+// passed since the original transaction date.
+//
+// Also skipped when the client has an active litigation hold — see
+// runDeletionSweep/deleteClientImmediately in src/lib/offboarding.ts,
+// which check clients.litigationHoldActive before ever calling this.
 export async function hardDeleteClient(clientId: string): Promise<void> {
   await withTransaction(async () => {
     for (const table of CHILD_TABLES_BY_CLIENT_ID) {

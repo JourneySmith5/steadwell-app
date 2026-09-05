@@ -19,6 +19,8 @@ export interface ClientRow {
   planUnbalancedOverrideNote: string | null;
   dateOfBirth: string | null;
   foundationReviewEmailSentAt: string | null;
+  litigationHoldActive: boolean;
+  litigationHoldNote: string | null;
   createdAt: string;
 }
 
@@ -40,6 +42,8 @@ interface ClientDbRow {
   plan_unbalanced_override_note: string | null;
   date_of_birth: string | null;
   foundation_review_email_sent_at: string | null;
+  litigation_hold_active: number;
+  litigation_hold_note: string | null;
   created_at: string;
 }
 
@@ -62,6 +66,8 @@ function fromRow(row: ClientDbRow): ClientRow {
     planUnbalancedOverrideNote: row.plan_unbalanced_override_note,
     dateOfBirth: row.date_of_birth,
     foundationReviewEmailSentAt: row.foundation_review_email_sent_at,
+    litigationHoldActive: !!row.litigation_hold_active,
+    litigationHoldNote: row.litigation_hold_note,
     createdAt: row.created_at,
   };
 }
@@ -71,19 +77,21 @@ export async function createClient(params: {
   email: string;
   phone: string;
   city: string;
+  state: string;
   preferredContact: string;
 }): Promise<ClientRow> {
   const id = newId();
   const now = nowIso();
   await run(
     `INSERT INTO clients (id, status, full_name, email, phone, city, state, preferred_contact, created_at, updated_at)
-     VALUES ($id, 'applied', $fullName, $email, $phone, $city, 'TX', $preferredContact, $now, $now)`,
+     VALUES ($id, 'applied', $fullName, $email, $phone, $city, $state, $preferredContact, $now, $now)`,
     {
       $id: id,
       $fullName: params.fullName,
       $email: params.email,
       $phone: params.phone,
       $city: params.city,
+      $state: params.state,
       $preferredContact: params.preferredContact,
       $now: now,
     }
@@ -201,6 +209,21 @@ export async function setFoundationReviewEmailSentAt(clientId: string, sentAt: s
   await run(`UPDATE clients SET foundation_review_email_sent_at = $sentAt, updated_at = $now WHERE id = $id`, {
     $id: clientId,
     $sentAt: sentAt,
+    $now: nowIso(),
+  });
+}
+
+// Owner-only (Agreement §8.3 / Privacy Policy §4.4) — pauses the §16 30-day
+// hard-delete for this client, whenever it would otherwise run, until the
+// hold is lifted. See runDeletionSweep / deleteClientImmediately in
+// src/lib/offboarding.ts, which both check this before calling
+// hardDeleteClient. note is optional context for why the hold exists (a
+// case number, a dispute description) — never shown to the client.
+export async function setLitigationHold(clientId: string, active: boolean, note: string | null) {
+  await run(`UPDATE clients SET litigation_hold_active = $active, litigation_hold_note = $note, updated_at = $now WHERE id = $id`, {
+    $id: clientId,
+    $active: active ? 1 : 0,
+    $note: note,
     $now: nowIso(),
   });
 }

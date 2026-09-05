@@ -9,6 +9,7 @@ import {
   SUPPORT_AREA_OPTIONS,
   CURRENT_TOOLS_OPTIONS,
   EXISTING_PROFESSIONALS_OPTIONS,
+  US_STATES,
 } from "@/lib/enums";
 
 export default function ApplyPage() {
@@ -40,6 +41,19 @@ export default function ApplyPage() {
             <TextInput name="city" required />
             <ErrorText>{errors.city}</ErrorText>
           </Field>
+          <Field label="State" required>
+            <Select name="state" required defaultValue="">
+              <option value="" disabled>
+                Select one
+              </option>
+              {US_STATES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+            <ErrorText>{errors.state}</ErrorText>
+          </Field>
           <Field label="Preferred communication" required>
             <Select name="preferredContact" required defaultValue="">
               <option value="" disabled>
@@ -52,9 +66,23 @@ export default function ApplyPage() {
           </Field>
           <label className="flex items-start gap-2 text-sm text-brand-slate mt-4">
             <input type="checkbox" name="txResidencyConfirmed" className="mt-1" />
-            <span>I confirm I currently reside in Texas. Steadwell serves Texas residents only.</span>
+            <span>
+              I confirm I am at least 18 years old, a resident of a U.S. state or territory, and legally
+              competent to enter into a binding agreement.
+            </span>
           </label>
           <ErrorText>{errors.txResidencyConfirmed}</ErrorText>
+          <p className="text-xs text-brand-slate/60 mt-3">
+            See our{" "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">
+              Privacy Policy
+            </a>{" "}
+            and{" "}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">
+              Terms of Service
+            </a>
+            .
+          </p>
         </Card>
 
         <Card className="mb-6">

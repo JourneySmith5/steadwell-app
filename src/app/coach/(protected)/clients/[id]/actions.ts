@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { findClientById, setClientCoach } from "@/lib/repo/clients";
+import { findClientById, setClientCoach, setLitigationHold } from "@/lib/repo/clients";
 import { resendInvitation as resendInvitationRow } from "@/lib/repo/invitations";
 import { createCheckoutLink, bumpResendCount } from "@/lib/repo/checkoutLinks";
 import { listPaymentsForClient, markPaymentStatus } from "@/lib/repo/payments";
@@ -15,7 +15,8 @@ import {
 } from "@/lib/email";
 import { requireClientAccess, requireOwner } from "@/lib/dal";
 import { getStripe } from "@/lib/stripe";
-import { FOUNDATION_REFUND_ELIGIBLE_STATUSES } from "@/lib/enums";
+import { listMeetingsForClient } from "@/lib/repo/meetings";
+import { isFoundationFeeRefundEligible } from "@/lib/foundationRefund";
 
 export async function approveClient(clientId: string) {
   const { client } = await requireClientAccess(clientId);
@@ -108,8 +109,9 @@ export async function refundFoundationPayment(clientId: string, formData: FormDa
     redirect(`/coach/clients/${clientId}?refundMismatch=1`);
   }
 
-  if (!FOUNDATION_REFUND_ELIGIBLE_STATUSES.includes(client.status)) {
-    redirect(`/coach/clients/${clientId}?refundError=${encodeURIComponent("This client has already submitted their Foundation Intake — the fee is no longer refundable.")}`);
+  const meetings = await listMeetingsForClient(clientId);
+  if (!isFoundationFeeRefundEligible(client.status, meetings)) {
+    redirect(`/coach/clients/${clientId}?refundError=${encodeURIComponent("The Foundation Intake session has already been delivered — the fee is no longer refundable.")}`);
   }
 
   const payments = await listPaymentsForClient(clientId);
@@ -132,7 +134,7 @@ export async function refundFoundationPayment(clientId: string, formData: FormDa
   // refund through Stripe, just record it as refunded locally below.
 
   await markPaymentStatus(foundationPayment.id, "refunded");
-  await setClientStatus(clientId, "canceled", "Financial Foundation fee refunded before Foundation Intake was submitted");
+  await setClientStatus(clientId, "canceled", "Financial Foundation fee refunded before the Foundation Intake session was delivered");
   redirect(`/coach/clients/${clientId}`);
 }
 
@@ -151,5 +153,22 @@ export async function reassignClientCoach(clientId: string, formData: FormData) 
   await requireClientAccess(clientId);
   const raw = String(formData.get("coachId") ?? "").trim();
   await setClientCoach(clientId, raw === "" ? null : raw);
+  redirect(`/coach/clients/${clientId}`);
+}
+
+// Owner-only (Agreement §8.3 / Privacy Policy §4.4) — pauses the §16
+// 30-day hard-delete for this client indefinitely, until lifted. See
+// setLitigationHold (src/lib/repo/clients.ts) and the guard in
+// runDeletionSweep/deleteClientImmediately (src/lib/offboarding.ts).
+export async function activateLitigationHold(clientId: string, formData: FormData) {
+  await requireOwner();
+  const note = String(formData.get("note") ?? "").trim() || null;
+  await setLitigationHold(clientId, true, note);
+  redirect(`/coach/clients/${clientId}`);
+}
+
+export async function liftLitigationHold(clientId: string) {
+  await requireOwner();
+  await setLitigationHold(clientId, false, null);
   redirect(`/coach/clients/${clientId}`);
 }

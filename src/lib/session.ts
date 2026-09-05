@@ -1,6 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { getIronSession, type SessionOptions } from "iron-session";
+import { SESSION_COOKIE_NAME } from "@/lib/sessionCookie";
+
+export { SESSION_COOKIE_NAME };
 
 export interface SessionData {
   userId?: string;
@@ -16,7 +19,7 @@ export interface SessionData {
 
 const sessionOptions: SessionOptions = {
   password: process.env.SESSION_SECRET ?? "",
-  cookieName: "steadwell_session",
+  cookieName: SESSION_COOKIE_NAME,
   cookieOptions: {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
