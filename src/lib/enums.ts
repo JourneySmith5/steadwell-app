@@ -203,6 +203,22 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
 // acceptance so old acceptances stay tied to the version they actually saw.
 export const AGREEMENT_VERSION = "2026-09-05";
 
+// Agreement §14.2 / Terms §15's 30-day advance-notice mechanism — see
+// src/lib/legalNotices.ts (the actual notice/email logic) and
+// src/lib/repo/legalNotices.ts (the plain repo layer). Defined here rather
+// than in either of those files because PublishNoticeForm (a Client
+// Component) needs the option list and labels too, and both of those files
+// pull in server-only code (the DB client / email sending) that can't be
+// bundled into the browser.
+export const LEGAL_DOCUMENTS = ["agreement", "privacy", "terms"] as const;
+export type LegalDocument = (typeof LEGAL_DOCUMENTS)[number];
+
+export const LEGAL_DOCUMENT_LABELS: Record<LegalDocument, string> = {
+  agreement: "Financial Coaching Services Agreement",
+  privacy: "Privacy Policy",
+  terms: "Terms of Service",
+};
+
 // §17's refund policy: the $399 Financial Foundation fee is refundable
 // until Coach delivers the Foundation Intake session (a completed
 // "Foundation"-type meeting), not tied to a fixed set of client-pipeline

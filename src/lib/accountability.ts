@@ -7,6 +7,8 @@ import {
   setSubscriptionStatus,
   setSubscriptionTier,
   findSubscriptionByClientId,
+  setSubscriptionPastDueSince,
+  setServicesSuspended,
 } from "@/lib/repo/subscriptions";
 import { findClientById, type ClientRow } from "@/lib/repo/clients";
 import { ACCOUNTABILITY_TIERS } from "@/lib/enums";
@@ -194,4 +196,29 @@ export async function cancelAccountabilitySubscription(clientId: string) {
   }
   if (subscription) await setSubscriptionStatus(clientId, "canceled");
   await setClientStatus(clientId, "canceled", "Client canceled Accountability subscription");
+}
+
+// Coach-initiated termination for non-payment (Agreement §5.5) — distinct
+// from cancelAccountabilitySubscription above (self-service, client-
+// initiated) even though the Stripe/status mechanics are the same: cancel
+// the real subscription (if any), and let setClientStatus's existing
+// OFFBOARDING_TRIGGER_STATUSES handling start the normal 30-day
+// export/deletion clock — §5.5's "the data retention provisions of Section
+// 8 will apply" is exactly that same pipeline, not a separate one.
+// Eligibility (15+ days past due) is the caller's responsibility to check
+// first — see isAccountabilityTerminationEligible
+// (src/lib/accountabilitySuspension.ts) and the server action that re-
+// checks it before calling this.
+export async function terminateAccountabilityForNonPayment(clientId: string) {
+  const subscription = await findSubscriptionByClientId(clientId);
+  const stripe = getStripe();
+  if (stripe && subscription?.stripeSubscriptionId) {
+    await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+  }
+  if (subscription) {
+    await setSubscriptionStatus(clientId, "canceled");
+    await setSubscriptionPastDueSince(clientId, null);
+    await setServicesSuspended(clientId, false);
+  }
+  await setClientStatus(clientId, "canceled", "Accountability Track terminated by Coach for non-payment (Agreement §5.5)");
 }

@@ -807,3 +807,40 @@ CREATE INDEX IF NOT EXISTS idx_page_views_session ON page_views(session_hash);
 -- (harmless — /apply now always submits the applicant's real state, see
 -- src/app/apply/actions.ts) so this is purely the residency-gate checkbox
 -- copy and createClient's hardcoded 'TX' changing, not a schema relaxation.
+
+-- Agreement §5.5: "If a scheduled Accountability Track payment fails, Coach
+-- may suspend services until payment is received. If payment is not
+-- received within fifteen (15) days of the failed charge, Coach may
+-- terminate the Accountability Track..." Both actions are Coach's
+-- discretion, never automatic — see src/lib/accountabilitySuspension.ts for
+-- the eligibility math and the client detail page's Accountability card for
+-- the Coach-facing controls. past_due_since is set to the date of the first
+-- unresolved failed charge in the current past-due streak (cleared the
+-- moment payment succeeds, which also auto-lifts any suspension — Coach
+-- discretion only extends the suspension for as long as payment is
+-- actually missing, per the Agreement's own "until payment is received").
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS past_due_since TEXT;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS services_suspended INTEGER NOT NULL DEFAULT 0;
+
+-- Agreement §14.2 / Terms §15: a material change to the Agreement, Privacy
+-- Policy, or Terms must be published to existing clients at least thirty
+-- (30) days before it takes effect, via the Platform or email, before the
+-- change can bind a client who doesn't affirmatively agree. This table is
+-- the record of each such notice actually sent — see
+-- src/lib/legalNotices.ts (the 30-day minimum is enforced there, not by a
+-- CHECK constraint, so the same validation covers both the real Postgres
+-- path and any future storage backend) and the owner-only
+-- /coach/settings/legal-notices page that creates them. This is the notice
+-- mechanism itself, not a document-versioning system — the underlying
+-- document text (agreementContent.ts/privacyContent.ts/termsContent.ts)
+-- still gets updated by hand once a change actually takes effect, the same
+-- way every legal-text change so far has been.
+CREATE TABLE IF NOT EXISTS legal_notices (
+  id TEXT PRIMARY KEY,
+  document TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  effective_date TEXT NOT NULL,
+  notified_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS idx_legal_notices_effective_date ON legal_notices(effective_date);

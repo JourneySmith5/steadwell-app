@@ -31,6 +31,7 @@ export default async function CoachLayout({ children }: LayoutProps<"/coach">) {
           { href: "/coach/analytics", label: "Analytics" },
           { href: "/coach/settings/discount-codes", label: "Discount Codes" },
           { href: "/coach/settings/booking-links", label: "Booking Links" },
+          { href: "/coach/settings/legal-notices", label: "Legal Notices" },
         ]
       : []),
   ];

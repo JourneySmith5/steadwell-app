@@ -262,3 +262,16 @@ export function offboardingFinalNoticeTemplate(fullName: string, daysRemaining: 
     body: `Hi ${fullName},\n\nThis is a final notice — you have ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left before your Financial Foundation Plan and records are permanently and irreversibly deleted from Steadwell, on ${deletionDate}.\n\nIf you'd like a copy, export now:\n\n${exportUrl}\n\nAfter ${deletionDate}, this data cannot be recovered.\n\n— Steadwell`,
   };
 }
+
+// Agreement §14.2 / Terms §15 — "Coach providing Client with an updated
+// Agreement through the Steadwell platform with at least thirty (30) days'
+// prior notice." One-shot broadcast, not a per-client draft/review — see
+// src/lib/legalNotices.ts's publishLegalNotice, which is this template's
+// only caller, for why a system send fits here the same way it does for
+// the offboarding reminders above.
+export function legalDocumentChangeTemplate(fullName: string, documentLabel: string, effectiveDateLabel: string, summary: string, url: string) {
+  return {
+    subject: `We're updating our ${documentLabel} — effective ${effectiveDateLabel}`,
+    body: `Hi ${fullName},\n\nWe're updating our ${documentLabel}, effective ${effectiveDateLabel} — at least 30 days from today, as required by your Agreement.\n\nWhat's changing: ${summary}\n\nYou can read the updated ${documentLabel} here:\n\n${url}\n\nContinuing to use Steadwell after ${effectiveDateLabel} means you accept these changes. If you have questions, or would prefer to cancel before the update takes effect, contact your coach through the portal.\n\n— Steadwell`,
+  };
+}

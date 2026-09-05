@@ -91,8 +91,9 @@ export default async function CoachDashboardPage() {
           Everything needing action across the whole pipeline: applications awaiting a
           decision, agreements/payments in progress, Foundation Intakes ready for Plan Build,
           account invitations that are expired or expiring soon, payments stuck pending or failed,
-          and clients who reopened a submitted intake to make a correction. Missing-statement
-          tracking isn&apos;t shown here — Statements upload is an explicit stub (see README).
+          clients who reopened a submitted intake to make a correction, and Accountability
+          subscriptions with a past-due payment. Missing-statement tracking isn&apos;t shown here —
+          Statements upload is an explicit stub (see README).
         </p>
         {attentionCount === 0 && <p className="text-sm text-brand-slate">Nothing needs attention right now.</p>}
         <AttentionSection title="Ready for Review" items={attention.readyForReview} />
@@ -101,6 +102,7 @@ export default async function CoachDashboardPage() {
         <AttentionSection title="Incomplete Account Invitation" items={attention.incompleteInvitations} />
         <AttentionSection title="Stalled / Failed Payment" items={attention.stalledPayments} />
         <AttentionSection title="Correction Requested" items={attention.reopenedIntakes} />
+        <AttentionSection title="Accountability Payment Past Due" items={attention.pastDueAccountability} />
       </Card>
 
       {isOwner && (

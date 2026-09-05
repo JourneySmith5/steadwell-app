@@ -23,6 +23,7 @@ import {
   type ClientStatus,
 } from "@/lib/enums";
 import { isFoundationFeeRefundEligible, isFoundationNonDeliveryRefundEligible, daysSince } from "@/lib/foundationRefund";
+import { isAccountabilityTerminationEligible, daysPastDue, ACCOUNTABILITY_TERMINATION_DAYS } from "@/lib/accountabilitySuspension";
 import {
   approveClient,
   declineClient,
@@ -31,6 +32,9 @@ import {
   reassignClientCoach,
   activateLitigationHold,
   liftLitigationHold,
+  suspendAccountabilityServices,
+  liftAccountabilitySuspension,
+  terminateAccountability,
 } from "./actions";
 import { DeleteClientForm } from "./DeleteClientForm";
 import { RefundFoundationFeeForm } from "./RefundFoundationFeeForm";
@@ -53,7 +57,7 @@ const PLAN_BUILDER_VISIBLE_STATUSES: ClientStatus[] = [
 
 export default async function ClientDetailPage(props: PageProps<"/coach/clients/[id]">) {
   const { id } = await props.params;
-  const { deleteMismatch, refundMismatch, refundError } = await props.searchParams;
+  const { deleteMismatch, refundMismatch, refundError, terminateError } = await props.searchParams;
   const { user, client } = await requireClientAccess(id);
   const isOwner = user.role === "owner";
 
@@ -250,6 +254,50 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                 Self-service — the client chooses, changes, and cancels their own tier from the portal; no
                 Coach approval step exists by design.
               </p>
+
+              {subscription.status === "past_due" && (() => {
+                const days = daysPastDue(subscription.pastDueSince);
+                const eligible = isAccountabilityTerminationEligible(subscription.pastDueSince);
+                return (
+                  <div className="mt-4 rounded-md bg-amber-50 border border-amber-300 text-amber-900 text-sm px-4 py-3">
+                    <p className="font-medium mb-1">
+                      Payment past due{days !== null && ` — day ${days} of ${ACCOUNTABILITY_TERMINATION_DAYS}`}
+                    </p>
+                    <p className="text-xs mb-3">
+                      Agreement §5.5: you may suspend services until payment is received, and — once{" "}
+                      {ACCOUNTABILITY_TERMINATION_DAYS} days have passed since the failed charge — terminate
+                      the Accountability Track. Neither happens automatically; both are your call.
+                    </p>
+                    {terminateError && <p className="text-red-700 text-xs mb-3">{terminateError}</p>}
+                    <div className="flex flex-wrap gap-2">
+                      {subscription.servicesSuspended ? (
+                        <form action={liftAccountabilitySuspension.bind(null, client.id)}>
+                          <Button type="submit" variant="secondary" className="text-xs px-3 py-1">
+                            Lift Suspension
+                          </Button>
+                        </form>
+                      ) : (
+                        <form action={suspendAccountabilityServices.bind(null, client.id)}>
+                          <Button type="submit" variant="secondary" className="text-xs px-3 py-1">
+                            Suspend Services
+                          </Button>
+                        </form>
+                      )}
+                      <form action={terminateAccountability.bind(null, client.id)}>
+                        <Button type="submit" variant="danger" className="text-xs px-3 py-1" disabled={!eligible}>
+                          Terminate Accountability Track
+                        </Button>
+                      </form>
+                    </div>
+                    {subscription.servicesSuspended && (
+                      <p className="text-xs mt-2">
+                        Services are currently suspended — the client can&apos;t book or redeem Accountability
+                        meetings until you lift this or payment succeeds.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </Card>
           )}
 

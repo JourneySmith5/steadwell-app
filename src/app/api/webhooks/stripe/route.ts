@@ -3,9 +3,17 @@ import { getStripe } from "@/lib/stripe";
 import { findPaymentByCheckoutSessionId } from "@/lib/repo/payments";
 import { fulfillFoundationPayment } from "@/lib/checkout";
 import { fulfillAccountabilityEnrollment } from "@/lib/accountability";
-import { findSubscriptionByStripeId, setSubscriptionStatus } from "@/lib/repo/subscriptions";
+import {
+  findSubscriptionByStripeId,
+  setSubscriptionStatus,
+  setSubscriptionPastDueSince,
+  setServicesSuspended,
+} from "@/lib/repo/subscriptions";
+import { sendPushToCoach } from "@/lib/webPush";
 import { recordAccountabilityPayment } from "@/lib/repo/accountabilityPayments";
 import { setClientStatus } from "@/lib/status";
+import { findClientById } from "@/lib/repo/clients";
+import { nowIso } from "@/lib/db/client";
 import type { SubscriptionStatus } from "@/lib/enums";
 
 // Real Stripe webhook endpoint — this is the reliable fulfillment path (the
@@ -75,6 +83,54 @@ export async function POST(req: Request) {
     if (local) {
       const status: SubscriptionStatus = sub.status === "active" ? "active" : sub.status === "past_due" ? "past_due" : "canceled";
       await setSubscriptionStatus(local.clientId, status);
+      // Fallback past_due_since (Agreement §5.5's 15-day clock) in case
+      // invoice.payment_failed below didn't land first for some reason —
+      // only sets it if it isn't already set, same idempotency as that
+      // handler, so this never resets an in-progress streak's start date.
+      if (status === "past_due" && !local.pastDueSince) {
+        await setSubscriptionPastDueSince(local.clientId, nowIso());
+      }
+      // Recovered (or the subscription itself ended some other way) —
+      // either way nothing is still failing, so clear both fields. This is
+      // the belt to invoice.payment_succeeded's suspenders below.
+      if (status !== "past_due") {
+        await setSubscriptionPastDueSince(local.clientId, null);
+        await setServicesSuspended(local.clientId, false);
+      }
+    }
+  }
+
+  // Agreement §5.5's "if a scheduled Accountability Track payment fails" —
+  // the literal failed-charge event, so this (not the subscription-level
+  // customer.subscription.updated above) is the primary source for
+  // past_due_since. Only sets it if it isn't already set: Stripe retries a
+  // failed invoice several times before giving up, and each retry re-fires
+  // this event — the 15-day clock has to start from the *first* failure in
+  // the streak, not get pushed back by every retry.
+  if (event.type === "invoice.payment_failed") {
+    const invoice = event.data.object;
+    const subscriptionDetails = invoice.parent?.type === "subscription_details" ? invoice.parent.subscription_details : null;
+    const stripeSubscriptionId =
+      typeof subscriptionDetails?.subscription === "string"
+        ? subscriptionDetails.subscription
+        : (subscriptionDetails?.subscription?.id ?? null);
+    if (stripeSubscriptionId) {
+      const local = await findSubscriptionByStripeId(stripeSubscriptionId);
+      if (local && !local.pastDueSince) {
+        await setSubscriptionPastDueSince(local.clientId, nowIso());
+        const client = await findClientById(local.clientId);
+        if (client) {
+          // Coach-facing only — the Agreement makes suspending/terminating
+          // Coach's discretionary call, so this is a heads-up, not an
+          // automatic action. See the Attention Queue and the client
+          // detail page's Accountability card for where Coach actually acts.
+          await sendPushToCoach({
+            title: "Accountability payment failed",
+            body: `${client.fullName}'s payment failed — you may suspend services until it's resolved (Agreement §5.5).`,
+            url: `/coach/clients/${local.clientId}`,
+          });
+        }
+      }
     }
   }
 
@@ -102,6 +158,15 @@ export async function POST(req: Request) {
     if (stripeSubscriptionId) {
       const local = await findSubscriptionByStripeId(stripeSubscriptionId);
       if (local) {
+        // Payment received — Agreement §5.5 is explicit that a Coach-placed
+        // suspension only lasts "until payment is received," so this clears
+        // both the past-due clock and any suspension automatically. Belt to
+        // customer.subscription.updated's suspenders above; whichever event
+        // lands first does the clearing, and the other is then a no-op.
+        if (local.pastDueSince || local.servicesSuspended) {
+          await setSubscriptionPastDueSince(local.clientId, null);
+          await setServicesSuspended(local.clientId, false);
+        }
         const paidAtSeconds = invoice.status_transitions?.paid_at ?? invoice.created;
         await recordAccountabilityPayment({
           clientId: local.clientId,
@@ -119,6 +184,8 @@ export async function POST(req: Request) {
     const local = await findSubscriptionByStripeId(sub.id);
     if (local) {
       await setSubscriptionStatus(local.clientId, "canceled");
+      await setSubscriptionPastDueSince(local.clientId, null);
+      await setServicesSuspended(local.clientId, false);
       await setClientStatus(local.clientId, "canceled", "Accountability subscription canceled via Stripe");
     }
   }

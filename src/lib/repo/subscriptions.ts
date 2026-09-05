@@ -9,6 +9,8 @@ interface SubscriptionDbRow {
   stripe_subscription_id: string | null;
   current_period_end: string | null;
   birthday_discount_year_applied: number | null;
+  past_due_since: string | null;
+  services_suspended: number;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +23,10 @@ export interface SubscriptionRow {
   stripeSubscriptionId: string | null;
   currentPeriodEnd: string | null;
   birthdayDiscountYearApplied: number | null;
+  // Agreement §5.5 — see src/lib/accountabilitySuspension.ts for the
+  // eligibility math these two fields feed.
+  pastDueSince: string | null;
+  servicesSuspended: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,6 +40,8 @@ function fromRow(row: SubscriptionDbRow): SubscriptionRow {
     stripeSubscriptionId: row.stripe_subscription_id,
     currentPeriodEnd: row.current_period_end,
     birthdayDiscountYearApplied: row.birthday_discount_year_applied,
+    pastDueSince: row.past_due_since,
+    servicesSuspended: Boolean(row.services_suspended),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -112,6 +120,40 @@ export async function setSubscriptionTier(clientId: string, tier: string) {
     $tier: tier,
     $now: nowIso(),
   });
+}
+
+// Agreement §5.5 — set to the date of the first unresolved failed charge in
+// the current past-due streak (see the Stripe webhook's invoice.payment_failed
+// handler, which only sets this if it isn't already set, so a Stripe retry
+// doesn't reset the 15-day clock); cleared (null) the moment payment
+// succeeds. Not a status by itself — status stays the source of truth for
+// "active"/"past_due"/"canceled"; this just adds the date past_due began.
+export async function setSubscriptionPastDueSince(clientId: string, pastDueSince: string | null) {
+  await run(`UPDATE subscriptions SET past_due_since = $pastDueSince, updated_at = $now WHERE client_id = $clientId`, {
+    $clientId: clientId,
+    $pastDueSince: pastDueSince,
+    $now: nowIso(),
+  });
+}
+
+// Coach discretion (Agreement §5.5: "Coach may suspend services until
+// payment is received") — see the client detail page's Accountability card
+// for the toggle, and the portal Accountability page for what "suspended"
+// actually blocks. Auto-cleared by the webhook the moment payment succeeds.
+export async function setServicesSuspended(clientId: string, suspended: boolean) {
+  await run(`UPDATE subscriptions SET services_suspended = $suspended, updated_at = $now WHERE client_id = $clientId`, {
+    $clientId: clientId,
+    $suspended: suspended ? 1 : 0,
+    $now: nowIso(),
+  });
+}
+
+// The Attention Queue's past-due-Accountability category — small table, no
+// pagination needed at this scale (same assumption as listActiveSubscriptions
+// below).
+export async function listPastDueSubscriptions(): Promise<SubscriptionRow[]> {
+  const rows = await all<SubscriptionDbRow>("SELECT * FROM subscriptions WHERE status = 'past_due'");
+  return rows.map(fromRow);
 }
 
 // The calendar year (client's local concept of "this year") BIRTHDAY20 was

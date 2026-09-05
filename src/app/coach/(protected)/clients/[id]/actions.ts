@@ -17,6 +17,9 @@ import { requireClientAccess, requireOwner } from "@/lib/dal";
 import { getStripe } from "@/lib/stripe";
 import { listMeetingsForClient } from "@/lib/repo/meetings";
 import { isFoundationFeeRefundEligible } from "@/lib/foundationRefund";
+import { findSubscriptionByClientId, setServicesSuspended } from "@/lib/repo/subscriptions";
+import { terminateAccountabilityForNonPayment } from "@/lib/accountability";
+import { isAccountabilityTerminationEligible } from "@/lib/accountabilitySuspension";
 
 export async function approveClient(clientId: string) {
   const { client } = await requireClientAccess(clientId);
@@ -170,5 +173,43 @@ export async function activateLitigationHold(clientId: string, formData: FormDat
 export async function liftLitigationHold(clientId: string) {
   await requireOwner();
   await setLitigationHold(clientId, false, null);
+  redirect(`/coach/clients/${clientId}`);
+}
+
+// Agreement §5.5: "Coach may suspend services until payment is received."
+// requireClientAccess (not requireOwner) — this is routine day-to-day
+// account management by whichever coach the client is assigned to, not a
+// legal/financial-risk action like litigation hold or a refund. Payment
+// recovering (the Stripe webhook) already auto-lifts a suspension on its
+// own; these two give Coach a manual lever for the period before that
+// happens, or to hold off even though the Agreement doesn't require it.
+export async function suspendAccountabilityServices(clientId: string) {
+  await requireClientAccess(clientId);
+  await setServicesSuspended(clientId, true);
+  redirect(`/coach/clients/${clientId}`);
+}
+
+export async function liftAccountabilitySuspension(clientId: string) {
+  await requireClientAccess(clientId);
+  await setServicesSuspended(clientId, false);
+  redirect(`/coach/clients/${clientId}`);
+}
+
+// Agreement §5.5's second discretionary step — only available once 15 days
+// have passed since the failed charge (isAccountabilityTerminationEligible,
+// src/lib/accountabilitySuspension.ts), re-checked here server-side the
+// same way every other high-stakes action on this page re-checks its own
+// gate rather than trusting the button having already been hidden.
+// Terminating ends the engagement the same way a refund or cancellation
+// does — see terminateAccountabilityForNonPayment (src/lib/accountability.ts).
+export async function terminateAccountability(clientId: string) {
+  await requireClientAccess(clientId);
+  const subscription = await findSubscriptionByClientId(clientId);
+  if (!subscription || !isAccountabilityTerminationEligible(subscription.pastDueSince)) {
+    redirect(
+      `/coach/clients/${clientId}?terminateError=${encodeURIComponent("This subscription isn't past due for at least 15 days yet.")}`
+    );
+  }
+  await terminateAccountabilityForNonPayment(clientId);
   redirect(`/coach/clients/${clientId}`);
 }

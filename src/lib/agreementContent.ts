@@ -17,6 +17,10 @@ export const GOVERNING_COUNTY = process.env.GOVERNING_COUNTY || "[County — see
 // pages actually live.
 export const PRIVACY_POLICY_URL = `${process.env.APP_URL ?? "http://localhost:3000"}/privacy`;
 export const TERMS_OF_SERVICE_URL = `${process.env.APP_URL ?? "http://localhost:3000"}/terms`;
+// A reference-only view of the current Agreement text for an
+// already-enrolled client — distinct from /agreement/[token], the live
+// per-applicant acceptance flow. See src/app/agreement/current/page.tsx.
+export const AGREEMENT_URL = `${process.env.APP_URL ?? "http://localhost:3000"}/agreement/current`;
 
 // Journey's go-live date for all three finalized legal documents (Agreement,
 // Privacy Policy, Terms of Service) — set together per legal's "Next Steps"

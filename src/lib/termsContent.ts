@@ -272,7 +272,7 @@ export function getTermsBlocks(): AgreementBlock[] {
     { type: "heading", text: "18. Contact Us" },
     { type: "paragraph", text: "If you have questions about these Terms, contact us at:" },
     { type: "paragraph", text: "Steadwell (Boldly Built LLC)" },
-    { type: "paragraph", text: "5900 Balcones Dr #15329, Austin, TX 78731" },
+    { type: "paragraph", text: "5900 Balcones Dr #15349, Austin, TX 78731" },
     { type: "paragraph", text: "info@boldlybuilt.group" },
   ];
 }

@@ -63,7 +63,12 @@ export async function redeemMeetingSlot() {
 
   const subscription = await findSubscriptionByClientId(user.client.id);
   const tier = subscription ? findTier(subscription.tier) : undefined;
-  if (!subscription || subscription.status !== "active" || !tier) {
+  // servicesSuspended is redundant with status !== "active" today (Coach
+  // can only suspend a past_due subscription — see the client detail
+  // page), but checked explicitly anyway rather than relying on that
+  // staying true forever, same "never trust one gate alone" reasoning as
+  // every other guarded action in this app.
+  if (!subscription || subscription.status !== "active" || subscription.servicesSuspended || !tier) {
     redirect("/portal/accountability");
   }
 

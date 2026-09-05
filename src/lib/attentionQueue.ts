@@ -3,6 +3,8 @@ import { listClients } from "@/lib/repo/clients";
 import { listPendingInvitations } from "@/lib/repo/invitations";
 import { listStalePendingPayments } from "@/lib/repo/payments";
 import { listReopenedIntakes } from "@/lib/repo/foundationIntake";
+import { listPastDueSubscriptions } from "@/lib/repo/subscriptions";
+import { daysPastDue, isAccountabilityTerminationEligible, ACCOUNTABILITY_TERMINATION_DAYS } from "@/lib/accountabilitySuspension";
 
 // The real Attention Queue (§11) — "surfaces every client needing action ...
 // so Coach never has to hunt through every client manually." Replaces the
@@ -36,6 +38,7 @@ export interface AttentionQueue {
   incompleteInvitations: AttentionItem[];
   stalledPayments: AttentionItem[];
   reopenedIntakes: AttentionItem[];
+  pastDueAccountability: AttentionItem[];
 }
 
 const INVITATION_EXPIRY_WARNING_DAYS = 2;
@@ -49,11 +52,12 @@ const STALE_PAYMENT_HOURS = 24;
 // -scoped `clients` list, so an out-of-scope client's item is dropped the
 // same way a since-deleted client's already was.
 export async function getAttentionQueue(coachId?: string): Promise<AttentionQueue> {
-  const [clients, pendingInvitations, stalePayments, reopened] = await Promise.all([
+  const [clients, pendingInvitations, stalePayments, reopened, pastDueSubs] = await Promise.all([
     listClients({ coachId }),
     listPendingInvitations(),
     listStalePendingPayments(STALE_PAYMENT_HOURS),
     listReopenedIntakes(),
+    listPastDueSubscriptions(),
   ]);
   const byId = new Map(clients.map((c) => [c.id, c]));
 
@@ -120,7 +124,35 @@ export async function getAttentionQueue(coachId?: string): Promise<AttentionQueu
     )
   ).filter((x): x is AttentionItem => x !== null);
 
-  return { readyForReview, awaitingPayment, readyForPlanBuild, incompleteInvitations, stalledPayments, reopenedIntakes };
+  // Agreement §5.5 — surfaces every past-due Accountability subscription so
+  // Coach doesn't have to remember to check each client individually.
+  // Suspending/terminating are still Coach's own call (see the client
+  // detail page's Accountability card); this just makes sure they know.
+  const pastDueAccountability: AttentionItem[] = pastDueSubs
+    .map((s) => {
+      const client = byId.get(s.clientId);
+      if (!client) return null;
+      const days = daysPastDue(s.pastDueSince);
+      const eligible = isAccountabilityTerminationEligible(s.pastDueSince);
+      return {
+        clientId: client.id,
+        fullName: client.fullName,
+        detail: `Accountability payment past due${
+          days !== null ? ` (day ${days} of ${ACCOUNTABILITY_TERMINATION_DAYS})` : ""
+        }${s.servicesSuspended ? " — services suspended" : ""}${eligible ? " — eligible for termination" : ""}.`,
+      };
+    })
+    .filter((x): x is AttentionItem => x !== null);
+
+  return {
+    readyForReview,
+    awaitingPayment,
+    readyForPlanBuild,
+    incompleteInvitations,
+    stalledPayments,
+    reopenedIntakes,
+    pastDueAccountability,
+  };
 }
 
 export function attentionQueueCount(queue: AttentionQueue): number {
@@ -130,6 +162,7 @@ export function attentionQueueCount(queue: AttentionQueue): number {
     queue.readyForPlanBuild.length +
     queue.incompleteInvitations.length +
     queue.stalledPayments.length +
-    queue.reopenedIntakes.length
+    queue.reopenedIntakes.length +
+    queue.pastDueAccountability.length
   );
 }

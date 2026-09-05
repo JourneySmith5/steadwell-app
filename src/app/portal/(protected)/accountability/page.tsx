@@ -170,7 +170,16 @@ export default async function AccountabilityPage(props: PageProps<"/portal/accou
           ))}
         </ul>
         <div className="text-xs text-brand-slate/60 mt-3 border-t border-brand-pale pt-3">
-          {isActive && currentTier ? (
+          {subscription?.servicesSuspended ? (
+            <p className="text-red-700">
+              Your Accountability services are currently suspended because of a failed payment (Agreement
+              §5.5). Please update your payment method on the{" "}
+              <a className="underline" href="/portal/billing">
+                Billing
+              </a>{" "}
+              page to resume — meeting booking is unavailable until then.
+            </p>
+          ) : isActive && currentTier ? (
             <>
               {meetingCapReached === "1" && (
                 <p className="text-red-700 mb-2">
