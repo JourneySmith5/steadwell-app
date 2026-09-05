@@ -137,7 +137,7 @@ export function getTermsBlocks(): AgreementBlock[] {
     { type: "heading", text: "9. Third-Party Services" },
     {
       type: "paragraph",
-      text: "The Platform integrates with third-party services to deliver its functionality, including Stripe for payment processing, Google Calendar for scheduling, Supabase for data storage, Vercel for hosting, and Resend for transactional email. Your use of these third-party services is subject to their respective terms and privacy policies. We are not responsible for the acts, omissions, or policies of any third-party service provider.",
+      text: "The Platform integrates with third-party services to deliver its functionality, including Stripe for payment processing, Google Calendar for scheduling, Vercel for hosting, and Resend for transactional email. Your use of these third-party services is subject to their respective terms and privacy policies. We are not responsible for the acts, omissions, or policies of any third-party service provider.",
     },
 
     { type: "heading", text: "10. Disclaimers" },
@@ -272,7 +272,7 @@ export function getTermsBlocks(): AgreementBlock[] {
     { type: "heading", text: "18. Contact Us" },
     { type: "paragraph", text: "If you have questions about these Terms, contact us at:" },
     { type: "paragraph", text: "Steadwell (Boldly Built LLC)" },
-    { type: "paragraph", text: "5900 Balcones Dr #15349, Austin, TX 78731" },
+    { type: "paragraph", text: "5900 Balcones Dr #15329, Austin, TX 78731" },
     { type: "paragraph", text: "info@boldlybuilt.group" },
   ];
 }

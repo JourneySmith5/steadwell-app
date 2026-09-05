@@ -6,14 +6,13 @@
 // cross-references in src/lib/agreementContent.ts (§7.2) and
 // src/lib/termsContent.ts (§1.2), which both link here.
 //
-// Known open item (see README "Before this goes live"): §3.1(4)/§5(4)
-// below claim Supabase Row Level Security policies and Supabase-based
-// authentication restrict database access. Neither is accurate today —
-// there are no RLS policies in the schema, and this app uses its own
-// login/2FA rather than Supabase Auth; every access check is enforced in
-// application code (src/lib/dal.ts). Journey is sending this specific
-// wording back to legal for revision — left verbatim here in the
-// meantime, matching what was actually delivered for launch.
+// §3.1(4)/§5(4) were corrected in legal's September revision to match how
+// this app actually works: Supabase hosts the Postgres database (accurate
+// — see README "Before this goes live" item 11), but Steadwell has its own
+// login/2FA rather than using Supabase Auth, and access control is
+// enforced in application code (src/lib/dal.ts), not Postgres Row Level
+// Security policies. The previous verbatim wording claimed Supabase-based
+// authentication and RLS; both were inaccurate and have been replaced.
 import { LEGAL_EFFECTIVE_DATE } from "@/lib/agreementContent";
 import type { AgreementBlock } from "@/lib/agreementContent";
 
@@ -98,7 +97,7 @@ export function getPrivacyBlocks(): AgreementBlock[] {
         "Payment processing — Stripe, Inc. Stripe processes and stores your payment card information. Stripe's privacy policy is available at https://stripe.com/privacy.",
         "Scheduling — Google Calendar (Google LLC). Your name, email address, and appointment details are shared with Google Calendar to schedule and manage coaching sessions. Google's privacy policy is available at https://policies.google.com/privacy.",
         "Hosting and application delivery — Vercel, Inc. The Platform's front end is hosted on Vercel's infrastructure, and Vercel may process server logs containing your IP address and usage data. Vercel's privacy policy is available at https://vercel.com/legal/privacy-policy.",
-        "Database and authentication — Supabase, Inc. Your account information, financial data, coaching records, and authentication credentials are stored on Supabase's hosted PostgreSQL infrastructure. Supabase's privacy policy is available at https://supabase.com/privacy.",
+        "Database hosting — Supabase, Inc. Your account information, financial data, and coaching records are stored on Supabase's hosted PostgreSQL infrastructure. Steadwell maintains its own authentication system; Supabase Auth is not used. Supabase's privacy policy is available at https://supabase.com/privacy.",
         "Transactional email — Resend, Inc. Your name and email address are shared with Resend to deliver onboarding, reminder, and service-related emails. Resend's privacy policy is available at https://resend.com/legal/privacy-policy.",
       ],
     },
@@ -160,7 +159,7 @@ export function getPrivacyBlocks(): AgreementBlock[] {
         "Encryption of data in transit using TLS/SSL protocols.",
         "Encryption of sensitive financial data at rest on Supabase's hosted PostgreSQL infrastructure.",
         "Access controls limiting employee and contractor access to personal information on a need-to-know basis.",
-        "Supabase Row Level Security policies restricting database access so that each client's data is accessible only to that client and authorized personnel.",
+        "Application-level access controls enforced in Steadwell's own code, isolating each client's data so that it is accessible only to that client and authorized personnel.",
         "Regular review of security practices and infrastructure.",
       ],
     },
