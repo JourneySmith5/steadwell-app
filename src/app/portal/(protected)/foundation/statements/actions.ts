@@ -1,52 +1,58 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { put, del } from "@vercel/blob";
+import { revalidatePath } from "next/cache";
+import { del } from "@vercel/blob";
 import { requireClient } from "@/lib/dal";
 import { createStatement, deleteStatement, findStatementById } from "@/lib/repo/statements";
 
-function fail(message: string): never {
-  redirect("/portal/foundation/statements?error=" + encodeURIComponent(message));
-}
+// The blob's bytes are already sitting in storage by the time this runs —
+// UploadStatementForm.tsx uploads straight from the browser to Blob (via
+// @vercel/blob/client's upload() against /api/statements/upload-token),
+// which is what lets a batch of several scanned statements go through at
+// once without hitting the serverless function's request-body limit (see
+// next.config.ts). This just records the resulting row, once per file, the
+// same way the old form-submit uploadStatement used to — called directly
+// (not through a <form action>) right after each browser-side upload
+// resolves.
+export type RecordStatementUploadResult = { ok: true } | { ok: false; error: string };
 
-export async function uploadStatement(formData: FormData) {
+export async function recordStatementUpload(params: {
+  accountNickname: string;
+  fileUrl: string;
+  originalFilename: string;
+}): Promise<RecordStatementUploadResult> {
   const user = await requireClient();
   if (!user.client) redirect("/login");
 
-  // Multiple files in one submission (e.g. the last several months' worth
-  // at once) — all get filed under the same account. No month label: an
-  // earlier version forced one month onto the whole batch, which was
-  // actively misleading whenever a client uploaded several different
-  // months together (see schema.sql's "Additive migrations" note). Coach
-  // opens each file directly to see its real statement period.
-  const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
-  const accountNickname = String(formData.get("accountNickname") || "").trim();
-
-  if (!accountNickname) fail("Which account is this a statement for?");
-  if (files.length === 0) fail("Choose at least one file to upload.");
-
-  // access: 'private' — this is a real financial document, not something
-  // that should be reachable by anyone who guesses or leaks the URL. The
-  // blob's URL only ever lives in our own database; clients and Coach both
-  // download through /api/statements/[id]/download, which checks the
-  // requester actually owns (or coaches) this client before fetching it
-  // from Blob storage server-side and streaming it back.
-  for (const file of files) {
-    const blob = await put(`statements/${user.client.id}/${Date.now()}-${file.name}`, file, {
-      access: "private",
-      addRandomSuffix: true,
-      contentType: file.type || undefined,
-    });
-
-    await createStatement({
-      clientId: user.client.id,
-      accountNickname,
-      fileUrl: blob.url,
-      originalFilename: file.name,
-    });
+  const accountNickname = params.accountNickname.trim();
+  if (!accountNickname) {
+    return { ok: false, error: "Which account is this a statement for?" };
   }
 
-  redirect("/portal/foundation/statements");
+  // Defense in depth: onBeforeGenerateToken (upload-token/route.ts) already
+  // scopes the token to this client's own prefix, but nothing stops a
+  // tampered client-side call from passing back some other fileUrl here —
+  // refuse to file a DB row pointing outside this client's own statements.
+  let pathname: string;
+  try {
+    pathname = new URL(params.fileUrl).pathname;
+  } catch {
+    return { ok: false, error: "That upload didn't come through correctly." };
+  }
+  if (!pathname.includes(`/statements/${user.client.id}/`)) {
+    return { ok: false, error: "That upload didn't come through correctly." };
+  }
+
+  await createStatement({
+    clientId: user.client.id,
+    accountNickname,
+    fileUrl: params.fileUrl,
+    originalFilename: params.originalFilename,
+  });
+
+  revalidatePath("/portal/foundation/statements");
+  return { ok: true };
 }
 
 export async function removeStatement(formData: FormData) {

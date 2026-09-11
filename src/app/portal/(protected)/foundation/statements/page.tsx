@@ -1,17 +1,13 @@
 import { requireClient } from "@/lib/dal";
-import { Card, Button, Field, TextInput, Select, ErrorText } from "@/components/ui";
+import { Card, Button } from "@/components/ui";
 import { SectionHeader, SectionFooterNav, EmptyState } from "../shared";
 import { listStatements } from "@/lib/repo/statements";
 import { listFinancialAccounts } from "@/lib/repo/financialAccounts";
 import { formatStatementMonth } from "@/lib/statementMonths";
-import { uploadStatement, removeStatement } from "./actions";
+import { removeStatement } from "./actions";
+import { UploadStatementForm } from "./UploadStatementForm";
 
-export default async function StatementsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
+export default async function StatementsPage() {
   const user = await requireClient();
   if (!user.client) return null;
   const clientId = user.client.id;
@@ -82,43 +78,7 @@ export default async function StatementsPage({
         </Card>
       )}
 
-      <Card>
-        <h2 className="font-heading text-lg text-brand-dark mb-3">Upload a Statement</h2>
-        {error && <ErrorText>{error}</ErrorText>}
-        <form action={uploadStatement} className="grid grid-cols-1 sm:grid-cols-2 gap-x-4" encType="multipart/form-data">
-          <Field label="Account" required>
-            {accounts.length > 0 ? (
-              <Select name="accountNickname" defaultValue={accounts[0].nickname} required>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.nickname}>
-                    {a.nickname}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <TextInput name="accountNickname" placeholder="e.g. Chase Checking" required />
-            )}
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Files" required>
-              <input
-                type="file"
-                name="files"
-                multiple
-                required
-                accept=".pdf,.png,.jpg,.jpeg"
-                className="block w-full text-sm text-brand-slate file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand-pale file:text-brand-dark file:text-sm file:font-medium hover:file:bg-brand-pale/70"
-              />
-              <p className="text-xs text-brand-slate/60 mt-1">
-                Select multiple files at once (e.g. ctrl/cmd-click) — no need to label or separate them by month.
-              </p>
-            </Field>
-          </div>
-          <div className="sm:col-span-2">
-            <Button type="submit">Upload</Button>
-          </div>
-        </form>
-      </Card>
+      <UploadStatementForm clientId={clientId} accountOptions={accounts.map((a) => a.nickname)} />
 
       <SectionFooterNav currentHref="statements" />
     </div>
