@@ -2,8 +2,7 @@ import { requireClient } from "@/lib/dal";
 import { Card, Button } from "@/components/ui";
 import { SectionHeader, SectionFooterNav, EmptyState } from "../shared";
 import { listStatements } from "@/lib/repo/statements";
-import { listFinancialAccounts } from "@/lib/repo/financialAccounts";
-import { formatStatementMonth } from "@/lib/statementMonths";
+import { formatStatementLabel } from "@/lib/statementMonths";
 import { removeStatement } from "./actions";
 import { UploadStatementForm } from "./UploadStatementForm";
 
@@ -12,7 +11,7 @@ export default async function StatementsPage() {
   if (!user.client) return null;
   const clientId = user.client.id;
 
-  const [statements, accounts] = await Promise.all([listStatements(clientId), listFinancialAccounts(clientId)]);
+  const statements = await listStatements(clientId);
 
   return (
     <div>
@@ -41,10 +40,7 @@ export default async function StatementsPage() {
             {statements.map((s) => (
               <li key={s.id} className="flex items-center justify-between px-6 py-4">
                 <div>
-                  <p className="text-sm font-medium text-brand-dark">
-                    {s.accountNickname}
-                    {formatStatementMonth(s.month) ? ` — ${formatStatementMonth(s.month)}` : ""}
-                  </p>
+                  <p className="text-sm font-medium text-brand-dark">{formatStatementLabel(s.accountNickname, s.month)}</p>
                   <p className="text-xs text-brand-slate/70">
                     Uploaded {new Date(s.uploadedAt).toLocaleDateString()}
                     {s.originalFilename ? ` · ${s.originalFilename}` : ""}
@@ -78,7 +74,7 @@ export default async function StatementsPage() {
         </Card>
       )}
 
-      <UploadStatementForm clientId={clientId} accountOptions={accounts.map((a) => a.nickname)} />
+      <UploadStatementForm clientId={clientId} />
 
       <SectionFooterNav currentHref="statements" />
     </div>

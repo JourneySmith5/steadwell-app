@@ -47,7 +47,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     return NextResponse.json({ error: "The file couldn't be retrieved from storage." }, { status: 502 });
   }
 
-  const filename = statement.originalFilename || `${statement.accountNickname}-statement`;
+  const filename = statement.originalFilename || (statement.accountNickname ? `${statement.accountNickname}-statement` : "statement");
   const forceDownload = new URL(request.url).searchParams.get("dl") === "1";
 
   return new NextResponse(result.stream, {

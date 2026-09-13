@@ -15,20 +15,20 @@ import { createStatement, deleteStatement, findStatementById } from "@/lib/repo/
 // same way the old form-submit uploadStatement used to — called directly
 // (not through a <form action>) right after each browser-side upload
 // resolves.
+//
+// No accountNickname anymore — requiring one turned out to be an
+// unnecessary extra step (a client uploading several accounts' worth of
+// files had to make a separate trip per account just to label them, and
+// Coach opens each file directly anyway; see schema.sql's "Additive
+// migrations" note, same reasoning as when month labeling was dropped).
 export type RecordStatementUploadResult = { ok: true } | { ok: false; error: string };
 
 export async function recordStatementUpload(params: {
-  accountNickname: string;
   fileUrl: string;
   originalFilename: string;
 }): Promise<RecordStatementUploadResult> {
   const user = await requireClient();
   if (!user.client) redirect("/login");
-
-  const accountNickname = params.accountNickname.trim();
-  if (!accountNickname) {
-    return { ok: false, error: "Which account is this a statement for?" };
-  }
 
   // Defense in depth: onBeforeGenerateToken (upload-token/route.ts) already
   // scopes the token to this client's own prefix, but nothing stops a
@@ -46,7 +46,6 @@ export async function recordStatementUpload(params: {
 
   await createStatement({
     clientId: user.client.id,
-    accountNickname,
     fileUrl: params.fileUrl,
     originalFilename: params.originalFilename,
   });

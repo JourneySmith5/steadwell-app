@@ -3,11 +3,13 @@ import { get, all, run, newId, nowIso } from "@/lib/db/client";
 export interface StatementRow {
   id: string;
   clientId: string;
-  accountNickname: string;
-  // Month labeling was dropped from the upload form — forcing one label
-  // onto a whole batch of files was actively misleading (see schema.sql's
-  // "Additive migrations" note). Existing rows keep whatever month they
-  // already have; new uploads have none.
+  // Account nickname and month labeling were both dropped from the upload
+  // form — forcing one label onto a whole batch of files was actively
+  // misleading (see schema.sql's "Additive migrations" note), and for
+  // account it was also just an extra step: Coach opens each file directly
+  // anyway. Existing rows keep whatever they already have; new uploads have
+  // neither.
+  accountNickname: string | null;
   month: string | null;
   fileUrl: string;
   originalFilename: string | null;
@@ -17,7 +19,7 @@ export interface StatementRow {
 interface StatementDbRow {
   id: string;
   client_id: string;
-  account_nickname: string;
+  account_nickname: string | null;
   month: string | null;
   file_url: string;
   original_filename: string | null;
@@ -51,7 +53,7 @@ export async function findStatementById(id: string): Promise<StatementRow | unde
 
 export async function createStatement(params: {
   clientId: string;
-  accountNickname: string;
+  accountNickname?: string | null;
   month?: string | null;
   fileUrl: string;
   originalFilename: string | null;
@@ -63,7 +65,7 @@ export async function createStatement(params: {
     {
       $id: id,
       $clientId: params.clientId,
-      $accountNickname: params.accountNickname,
+      $accountNickname: params.accountNickname ?? null,
       $month: params.month ?? null,
       $fileUrl: params.fileUrl,
       $originalFilename: params.originalFilename,

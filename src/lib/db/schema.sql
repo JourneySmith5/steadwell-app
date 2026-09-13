@@ -298,7 +298,7 @@ CREATE TABLE IF NOT EXISTS financial_accounts (
 CREATE TABLE IF NOT EXISTS statements (
   id TEXT PRIMARY KEY,
   client_id TEXT NOT NULL REFERENCES clients(id),
-  account_nickname TEXT NOT NULL,
+  account_nickname TEXT,
   month TEXT,
   file_url TEXT NOT NULL,
   original_filename TEXT,
@@ -496,6 +496,12 @@ ALTER TABLE statements ADD COLUMN IF NOT EXISTS original_filename TEXT;
 -- Dropped from the upload form; Coach opens each file to see its real
 -- period. Existing rows keep whatever month they already have.
 ALTER TABLE statements ALTER COLUMN month DROP NOT NULL;
+-- Requiring an account nickname on every statement upload turned out to be
+-- an unnecessary extra step — a client uploading several files at once had
+-- to make a separate trip per account just to label them, and Coach opens
+-- each file directly anyway (same reasoning as month, above). Dropped from
+-- the upload form; existing rows keep whatever nickname they already have.
+ALTER TABLE statements ALTER COLUMN account_nickname DROP NOT NULL;
 -- Rare-case override: a plan can now finalize without a $0 Cash-Flow
 -- Allocation difference, but only via an explicit "are you sure?"
 -- confirmation on the Finalize page that requires Coach to enter why (e.g.

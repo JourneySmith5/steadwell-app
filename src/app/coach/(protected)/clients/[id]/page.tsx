@@ -12,7 +12,7 @@ import { findSubscriptionByClientId } from "@/lib/repo/subscriptions";
 import { findOffboardingByClientId } from "@/lib/repo/offboarding";
 import { countMeetingRedemptionsThisMonth } from "@/lib/repo/meetingRedemptions";
 import { listStatements } from "@/lib/repo/statements";
-import { formatStatementMonth } from "@/lib/statementMonths";
+import { formatStatementLabel } from "@/lib/statementMonths";
 import { PageHeader, Card, StatusBadge, Button, Select, TextArea } from "@/components/ui";
 import {
   PLAN_STATUS_LABELS,
@@ -379,10 +379,7 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
               <ul className="divide-y divide-brand-pale">
                 {statements.map((s) => (
                   <li key={s.id} className="py-2 text-sm flex items-center justify-between">
-                    <span className="text-brand-dark">
-                      {s.accountNickname}
-                      {formatStatementMonth(s.month) ? ` — ${formatStatementMonth(s.month)}` : ""}
-                    </span>
+                    <span className="text-brand-dark">{formatStatementLabel(s.accountNickname, s.month)}</span>
                     <span className="flex items-center gap-3">
                       <a
                         href={`/api/statements/${s.id}/download`}

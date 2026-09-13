@@ -8,7 +8,7 @@ import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
 import { listSavings } from "@/lib/repo/savings";
 import { listStatements } from "@/lib/repo/statements";
 import { listMessageAttachmentsForClient } from "@/lib/repo/messages";
-import { formatStatementMonth } from "@/lib/statementMonths";
+import { formatStatementLabel } from "@/lib/statementMonths";
 import { Card, Field, TextInput, TextArea, Button } from "@/components/ui";
 import { PlanBuilderHeader, money } from "./shared";
 import { saveBaseline } from "./actions";
@@ -60,8 +60,7 @@ export default async function PlanBaselinePage(props: PageProps<"/coach/clients/
                 {statements.map((s) => (
                   <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
                     <span className="text-brand-dark">
-                      {s.accountNickname}
-                      {formatStatementMonth(s.month) ? ` — ${formatStatementMonth(s.month)}` : ""}
+                      {formatStatementLabel(s.accountNickname, s.month)}
                       {s.originalFilename && (
                         <span className="text-brand-slate/60"> ({s.originalFilename})</span>
                       )}

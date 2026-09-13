@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireClient } from "@/lib/dal";
 import { listStatements } from "@/lib/repo/statements";
 import { listMessageAttachmentsForClient } from "@/lib/repo/messages";
-import { formatStatementMonth } from "@/lib/statementMonths";
+import { formatStatementLabel } from "@/lib/statementMonths";
 import { Card, PageHeader } from "@/components/ui";
 
 // A read-only "everything you've sent us" reference — not an upload spot
@@ -39,8 +39,7 @@ export default async function DocumentsPage() {
             {statements.map((s) => (
               <li key={s.id} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-brand-dark">
-                  {s.accountNickname}
-                  {formatStatementMonth(s.month) ? ` — ${formatStatementMonth(s.month)}` : ""}
+                  {formatStatementLabel(s.accountNickname, s.month)}
                   {s.originalFilename && <span className="text-brand-slate/60"> ({s.originalFilename})</span>}
                 </span>
                 <a href={`/api/statements/${s.id}/download`} target="_blank" rel="noopener noreferrer" className="text-brand-dark underline hover:no-underline shrink-0 ml-3">
