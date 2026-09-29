@@ -18,6 +18,11 @@ import { listFinancialAccounts } from "@/lib/repo/financialAccounts";
 import { listBills } from "@/lib/repo/bills";
 import { listIncomeSources } from "@/lib/repo/incomeSources";
 import { findFoundationIntakeByClientId } from "@/lib/repo/foundationIntake";
+import { listHouseholdMembers } from "@/lib/repo/householdMembers";
+import { listSavings } from "@/lib/repo/savings";
+import { findEmergencyFund } from "@/lib/repo/emergencyFund";
+import { listSinkingFunds } from "@/lib/repo/sinkingFunds";
+import { listGoals } from "@/lib/repo/goals";
 import { PageHeader, Card, StatusBadge, Button, Select, TextArea } from "@/components/ui";
 import {
   PLAN_STATUS_LABELS,
@@ -90,17 +95,24 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
       // not just the owner, so a coach sees the same picker.
       listCoachSideUsers(),
     ]);
-  // Foundation Intake answers — fetched separately so the tuple above stays
-  // readable. Only meaningful once the client has a portal account.
-  const [intake, debts, accounts, incomeSources, bills] = client.userId
-    ? await Promise.all([
-        findFoundationIntakeByClientId(id),
-        listDebts(id),
-        listFinancialAccounts(id),
-        listIncomeSources(id),
-        listBills(id),
-      ])
-    : [undefined, [], [], [], []];
+  // Foundation Intake answers — every portal section. Fetched separately so
+  // the tuple above stays readable. Only exists once the client has a portal
+  // account.
+  const [intake, household, incomeSources, accounts, savings, emergencyFund, sinkingFunds, bills, debts, goals] =
+    client.userId
+      ? await Promise.all([
+          findFoundationIntakeByClientId(id),
+          listHouseholdMembers(id),
+          listIncomeSources(id),
+          listFinancialAccounts(id),
+          listSavings(id),
+          findEmergencyFund(id),
+          listSinkingFunds(id),
+          listBills(id),
+          listDebts(id),
+          listGoals(id),
+        ])
+      : ([undefined, [], [], [], [], undefined, [], [], [], []] as const);
   const subscriptionTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
   const coachOnlyUsers = coachUsers.filter((u) => u.role === "coach");
   const assignedCoach = coachUsers.find((u) => u.id === client.coachId);
@@ -355,7 +367,19 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
           )}
 
           {client.userId && (
-            <IntakeSnapshot intake={intake} debts={debts} accounts={accounts} income={incomeSources} bills={bills} />
+            <IntakeSnapshot
+              intake={intake}
+              dateOfBirth={client.dateOfBirth}
+              household={[...household]}
+              income={[...incomeSources]}
+              accounts={[...accounts]}
+              savings={[...savings]}
+              emergencyFund={emergencyFund}
+              sinkingFunds={[...sinkingFunds]}
+              bills={[...bills]}
+              debts={[...debts]}
+              goals={[...goals]}
+            />
           )}
 
           {application && (
