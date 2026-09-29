@@ -13,6 +13,11 @@ import { findOffboardingByClientId } from "@/lib/repo/offboarding";
 import { countMeetingRedemptionsThisMonth } from "@/lib/repo/meetingRedemptions";
 import { listStatements } from "@/lib/repo/statements";
 import { formatStatementLabel } from "@/lib/statementMonths";
+import { listDebts } from "@/lib/repo/debts";
+import { listFinancialAccounts } from "@/lib/repo/financialAccounts";
+import { listBills } from "@/lib/repo/bills";
+import { listIncomeSources } from "@/lib/repo/incomeSources";
+import { findFoundationIntakeByClientId } from "@/lib/repo/foundationIntake";
 import { PageHeader, Card, StatusBadge, Button, Select, TextArea } from "@/components/ui";
 import {
   PLAN_STATUS_LABELS,
@@ -38,6 +43,7 @@ import {
 } from "./actions";
 import { DeleteClientForm } from "./DeleteClientForm";
 import { RefundFoundationFeeForm } from "./RefundFoundationFeeForm";
+import { IntakeSnapshot } from "./IntakeSnapshot";
 import Link from "next/link";
 
 // Once Foundation Intake is submitted, Coach always has a way back into the
@@ -84,6 +90,17 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
       // not just the owner, so a coach sees the same picker.
       listCoachSideUsers(),
     ]);
+  // Foundation Intake answers — fetched separately so the tuple above stays
+  // readable. Only meaningful once the client has a portal account.
+  const [intake, debts, accounts, incomeSources, bills] = client.userId
+    ? await Promise.all([
+        findFoundationIntakeByClientId(id),
+        listDebts(id),
+        listFinancialAccounts(id),
+        listIncomeSources(id),
+        listBills(id),
+      ])
+    : [undefined, [], [], [], []];
   const subscriptionTier = subscription ? ACCOUNTABILITY_TIERS.find((t) => t.id === subscription.tier) : undefined;
   const coachOnlyUsers = coachUsers.filter((u) => u.role === "coach");
   const assignedCoach = coachUsers.find((u) => u.id === client.coachId);
@@ -335,6 +352,10 @@ export default async function ClientDetailPage(props: PageProps<"/coach/clients/
                 </form>
               )}
             </Card>
+          )}
+
+          {client.userId && (
+            <IntakeSnapshot intake={intake} debts={debts} accounts={accounts} income={incomeSources} bills={bills} />
           )}
 
           {application && (
